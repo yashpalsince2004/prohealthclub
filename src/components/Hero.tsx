@@ -28,7 +28,7 @@ const Hero = () => {
           <img 
             src={dumbbells} 
             alt="" 
-            className="absolute top-20 left-10 w-48 h-32 object-cover opacity-10 animate-float rounded-lg"
+            className="absolute top-20 left-2 md:left-10 w-32 md:w-48 h-24 md:h-32 object-cover opacity-10 animate-float rounded-lg"
             style={{ 
               animationDelay: '0s',
               transform: `translateY(${floatOffset1}px)`
@@ -39,7 +39,7 @@ const Hero = () => {
           <img 
             src={tyres} 
             alt="" 
-            className="absolute bottom-32 right-10 w-56 h-40 object-cover opacity-10 animate-float rounded-lg"
+            className="absolute bottom-32 right-2 md:right-10 w-40 md:w-56 h-32 md:h-40 object-cover opacity-10 animate-float rounded-lg"
             style={{ 
               animationDelay: '1s',
               transform: `translateY(${floatOffset2}px)`
@@ -49,7 +49,7 @@ const Hero = () => {
         <img 
           src={dumbbells} 
           alt="" 
-          className="absolute top-1/2 right-20 w-40 h-28 object-cover opacity-5 animate-float rounded-lg"
+          className="hidden md:block absolute top-1/2 right-20 w-40 h-28 object-cover opacity-5 animate-float rounded-lg"
           style={{ 
             animationDelay: '2s',
             transform: `translateY(${floatOffset1 * 0.7}px)`
@@ -66,7 +66,7 @@ const Hero = () => {
           </p>
 
           {/* Main Heading */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight">
             Time to{" "}
             <span className="gradient-text text-glow">Push</span>
             <br />
@@ -104,18 +104,18 @@ const Hero = () => {
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 gap-4 md:gap-8 max-w-3xl mx-auto pt-12">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-8 max-w-3xl mx-auto pt-12">
             <div className="text-center">
-              <div className="text-3xl md:text-5xl font-black gradient-text">15+</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-2">Years Experience</div>
+              <div className="text-2xl sm:text-3xl md:text-5xl font-black gradient-text">15+</div>
+              <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Years Experience</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl md:text-5xl font-black gradient-text">220+</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-2">Happy Members</div>
+              <div className="text-2xl sm:text-3xl md:text-5xl font-black gradient-text">220+</div>
+              <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Happy Members</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl md:text-5xl font-black gradient-text">5+</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-2">National Athletes</div>
+              <div className="text-2xl sm:text-3xl md:text-5xl font-black gradient-text">5+</div>
+              <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">National Athletes</div>
             </div>
           </div>
         </div>

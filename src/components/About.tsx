@@ -31,9 +31,9 @@ const About = () => {
   ];
 
   return (
-    <section ref={sectionRef} id="about" className="py-24 bg-secondary/30 relative overflow-hidden">
+    <section ref={sectionRef} id="about" className="py-24 bg-secondary/30 relative overflow-hidden scroll-mt-20">
       {/* Floating Equipment Background */}
-      <div ref={parallaxRef} className="absolute top-20 right-0 w-1/3 h-64 opacity-5 pointer-events-none">
+      <div ref={parallaxRef} className="hidden lg:block absolute top-20 right-0 w-1/3 h-64 opacity-5 pointer-events-none">
         <img 
           src={gymMachines} 
           alt="" 
@@ -63,7 +63,7 @@ const About = () => {
           <div className={`space-y-8 transition-all duration-700 delay-200 ${sectionVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
             <div>
               <p className="text-primary font-bold text-sm tracking-widest uppercase mb-3">About Us</p>
-              <h2 className="text-4xl md:text-5xl font-black mb-6">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-6">
                 Welcome to <span className="gradient-text">Prro Health Cllub</span>
               </h2>
               <p className="text-lg text-muted-foreground leading-relaxed mb-6">

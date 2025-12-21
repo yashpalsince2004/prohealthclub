@@ -36,9 +36,9 @@ const Trainers = () => {
   ];
 
   return (
-    <section id="trainers" className="py-24 bg-background relative overflow-hidden">
+    <section id="trainers" className="py-24 bg-background relative overflow-hidden scroll-mt-20">
       {/* Floating Equipment Background */}
-      <div ref={parallaxRef} className="absolute bottom-10 left-0 w-1/4 h-48 opacity-5 pointer-events-none">
+      <div ref={parallaxRef} className="hidden lg:block absolute bottom-10 left-0 w-1/4 h-48 opacity-5 pointer-events-none">
         <img 
           src={battleRopes} 
           alt="" 
@@ -50,7 +50,7 @@ const Trainers = () => {
       <div className="container mx-auto px-4 lg:px-8 relative z-10">
         <div ref={headerRef} className={`text-center mb-16 transition-all duration-700 ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <p className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Our Team</p>
-          <h2 className="text-4xl md:text-5xl font-black mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-6">
             Meet Your <span className="gradient-text">Expert Trainers</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
@@ -89,7 +89,7 @@ const Trainers = () => {
               {/* Content */}
               <div className="p-6 space-y-4">
                 <div>
-                  <h3 className="text-2xl font-black mb-1 group-hover:text-primary transition-colors">{trainer.name}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black mb-1 group-hover:text-primary transition-colors">{trainer.name}</h3>
                   <p className="text-primary font-semibold text-sm">{trainer.title}</p>
                 </div>
 

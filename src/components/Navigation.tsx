@@ -31,7 +31,7 @@ const Navigation = () => {
           </a>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden lg:flex items-center space-x-1">
             {navItems.map((item) => (
               item.isHash ? (
                 <a
@@ -54,7 +54,7 @@ const Navigation = () => {
           </div>
 
           {/* CTA Button */}
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <Button variant="cta" size="lg" className="hover-glow font-bold">
               Join Now
             </Button>
@@ -63,7 +63,7 @@ const Navigation = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-foreground"
+            className="lg:hidden text-foreground"
             aria-label="Toggle menu"
           >
             {isOpen ? <X size={28} /> : <Menu size={28} />}
@@ -72,7 +72,7 @@ const Navigation = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden pb-6 animate-fade-in">
+          <div className="lg:hidden pb-6 animate-fade-in">
             <div className="flex flex-col space-y-3">
               {navItems.map((item) => (
                 item.isHash ? (

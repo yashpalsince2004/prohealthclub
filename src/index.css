@@ -37,13 +37,17 @@ All colors MUST be HSL.
     --ring: 14 100% 57%;
 
     --radius: 0.75rem;
-    
-    --gradient-primary: linear-gradient(135deg, hsl(14 100% 57%), hsl(20 100% 50%));
+
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(14 100% 57%),
+      hsl(20 100% 50%)
+    );
     --gradient-dark: linear-gradient(180deg, hsl(0 0% 0%), hsl(0 0% 5%));
     --glow-orange: 0 0 40px hsl(14 100% 57% / 0.5);
     --glow-strong: 0 0 60px hsl(14 100% 57% / 0.7);
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    
+
     --glass-bg: hsl(0 0% 100% / 0.05);
     --glass-border: hsl(0 0% 100% / 0.1);
     --glass-hover: hsl(0 0% 100% / 0.1);
@@ -80,11 +84,23 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
   }
-  
+
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  section {
+    overflow-x: hidden;
   }
 }
 
@@ -92,20 +108,20 @@ All colors MUST be HSL.
   .text-glow {
     text-shadow: var(--glow-orange);
   }
-  
+
   .text-glow-strong {
     text-shadow: var(--glow-strong);
   }
-  
+
   .hover-glow {
     transition: var(--transition-smooth);
   }
-  
+
   .hover-glow:hover {
     box-shadow: var(--glow-orange);
     transform: translateY(-2px);
   }
-  
+
   .gradient-text {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
