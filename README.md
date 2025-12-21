@@ -1,73 +1,101 @@
-# Welcome to your Lovable project
+# Pro Health Club
 
-## Project info
+A modern, responsive gym website built with React, TypeScript, and Tailwind CSS.
 
-**URL**: https://lovable.dev/projects/03ac3434-67e9-4f36-acd9-ed40ba4c1e5d
+## 🌐 Live Demo
 
-## How can I edit this code?
+**Website**: [https://yashpalsince2004.github.io/prohealthclub/](https://yashpalsince2004.github.io/prohealthclub/)
 
-There are several ways of editing your application.
+## 🚀 Features
 
-**Use Lovable**
+- Modern, responsive design
+- Interactive BMI and Body Fat calculators
+- Trainer profiles and transformations gallery
+- Service listings and pricing plans
+- Contact form
+- Smooth animations and transitions
+- Mobile-friendly navigation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/03ac3434-67e9-4f36-acd9-ed40ba4c1e5d) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
+## 🛠️ Technologies Used
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Vite** - Fast build tool and dev server
+- **TypeScript** - Type-safe JavaScript
+- **React** - UI library
+- **React Router** - Client-side routing
+- **shadcn/ui** - Beautiful UI components
+- **Tailwind CSS** - Utility-first CSS framework
+- **Lucide React** - Icon library
 
-## How can I deploy this project?
+## 📦 Installation
 
-Simply open [Lovable](https://lovable.dev/projects/03ac3434-67e9-4f36-acd9-ed40ba4c1e5d) and click on Share -> Publish.
+Follow these steps to run the project locally:
 
-## Can I connect a custom domain to my Lovable project?
+```sh
+# Step 1: Clone the repository
+git clone https://github.com/yashpalsince2004/prohealthclub.git
 
-Yes, you can!
+# Step 2: Navigate to the project directory
+cd prohealthclub-main
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Step 3: Install dependencies
+npm install
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+# Step 4: Start the development server
+npm run dev
+```
+
+The application will be available at `http://localhost:8080`
+
+## 🏗️ Build for Production
+
+To create a production build:
+
+```sh
+npm run build
+```
+
+The built files will be in the `dist` directory.
+
+## 🚢 Deployment
+
+This project is configured for GitHub Pages deployment with automatic CI/CD:
+
+1. Push changes to the `main` branch
+2. GitHub Actions automatically builds and deploys the site
+3. Changes appear live within 1-2 minutes
+
+The deployment workflow is configured in `.github/workflows/deploy.yml`
+
+## 📝 Project Structure
+
+```
+prohealthclub-main/
+├── src/
+│   ├── components/     # React components
+│   ├── pages/          # Page components
+│   ├── hooks/          # Custom React hooks
+│   ├── lib/            # Utility functions
+│   └── assets/         # Images and static files
+├── public/             # Public static files
+└── dist/               # Production build (generated)
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is open source and available for personal and commercial use.
+
+## 👤 Author
+
+**Yashpal**
+
+- GitHub: [@yashpalsince2004](https://github.com/yashpalsince2004)
