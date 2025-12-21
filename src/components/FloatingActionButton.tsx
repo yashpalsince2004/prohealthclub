@@ -1,6 +1,7 @@
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, Bot, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import Chatbot from "./Chatbot";
 
 // WhatsApp Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -16,13 +17,9 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 
 const FloatingActionButton = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const scrollToContact = () => {
-    const contactSection = document.getElementById("contact");
-    contactSection?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const callNow = () => {
+  const makeCall = () => {
     window.location.href = "tel:+919867016344";
   };
 
@@ -40,7 +37,7 @@ const FloatingActionButton = () => {
       {isExpanded && (
         <div className="flex flex-col gap-3 animate-fade-in">
           <Button
-            onClick={callNow}
+            onClick={makeCall}
             size="icon"
             className="h-12 w-12 rounded-full bg-[var(--glass-primary)] backdrop-blur-md border border-[var(--glass-border)] hover:bg-[var(--glass-primary-hover)] shadow-lg hover:scale-110 transition-all group"
             title="Call Now"
@@ -58,10 +55,13 @@ const FloatingActionButton = () => {
           </Button>
 
           <Button
-            onClick={scrollToContact}
+            onClick={() => {
+              setIsChatOpen(true);
+              setIsExpanded(false);
+            }}
             size="icon"
             className="h-12 w-12 rounded-full bg-[var(--glass-primary)] backdrop-blur-md border border-[var(--glass-border)] hover:bg-[var(--glass-primary-hover)] shadow-lg hover:scale-110 transition-all group"
-            title="Send Message"
+            title="Chat Assistant"
           >
             <MessageCircle className="h-5 w-5" />
           </Button>
@@ -80,13 +80,11 @@ const FloatingActionButton = () => {
             isExpanded ? "rotate-45" : ""
           }`}
         >
-          {isExpanded ? (
-            <span className="text-2xl font-bold">+</span>
-          ) : (
-            <MessageCircle className="h-6 w-6" />
-          )}
+          <MessageCircle className="h-6 w-6" />
         </div>
       </Button>
+
+      <Chatbot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   );
 };
