@@ -99,3 +99,4 @@ This project is open source and available for personal and commercial use.
 **Yashpal**
 
 - GitHub: [@yashpalsince2004](https://github.com/yashpalsince2004)
+- LinkedIn: [Yash Pal](https://www.linkedin.com/in/yash-pal-since2004/)
