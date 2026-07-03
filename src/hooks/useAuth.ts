@@ -13,7 +13,7 @@ export function useAuth(allowedRoles?: ("admin" | "trainer" | "receptionist" | "
     if (!token || isTokenExpired(token)) {
       clearAuth();
       if (typeof window !== "undefined") {
-        window.location.href = "/prohealthclub/login";
+        window.location.href = "/login";
       }
       return;
     }
@@ -27,13 +27,13 @@ export function useAuth(allowedRoles?: ("admin" | "trainer" | "receptionist" | "
           if (allowedRoles && !allowedRoles.includes(freshUser.role)) {
             // Redirect to appropriate dashboard if not allowed
             const roleRedirects = {
-              admin: "/prohealthclub/admin",
-              receptionist: "/prohealthclub/reception",
-              trainer: "/prohealthclub/trainer",
-              member: "/prohealthclub/member",
+              admin: "/admin",
+              receptionist: "/reception",
+              trainer: "/trainer",
+              member: "/member",
             };
             if (typeof window !== "undefined") {
-              window.location.href = roleRedirects[freshUser.role] || "/prohealthclub/login";
+              window.location.href = roleRedirects[freshUser.role] || "/login";
             }
             return;
           }
@@ -47,7 +47,7 @@ export function useAuth(allowedRoles?: ("admin" | "trainer" | "receptionist" | "
           setLoading(false);
           clearAuth();
           if (typeof window !== "undefined") {
-            window.location.href = "/prohealthclub/login";
+            window.location.href = "/login";
           }
         }
       });

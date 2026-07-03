@@ -1,0 +1,1 @@
+import{e as o,g as n}from"./auth.DVCXxKXL.js";if(!o())window.location.href="/login";else{const e=n();if(!e)window.location.href="/login";else{const i={admin:"/admin",receptionist:"/reception",trainer:"/trainer",member:"/member"};window.location.href=i[e.role]||"/login"}}

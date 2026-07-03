@@ -7,14 +7,14 @@ export const onRequest = defineMiddleware((context, next) => {
   const path = url.pathname.replace(/\/$/, "");
 
   // If user goes to login page and already has a role cookie, redirect to their dashboard
-  if (path === "/prohealthclub/login" || path === "/prohealthclub/login/") {
+  if (path === "/login" || path === "/login/") {
     const roleCookie = context.cookies.get("prro_role")?.value;
     if (roleCookie) {
       const roleRedirects: Record<string, string> = {
-        admin: "/prohealthclub/admin",
-        receptionist: "/prohealthclub/reception",
-        trainer: "/prohealthclub/trainer",
-        member: "/prohealthclub/member",
+        admin: "/admin",
+        receptionist: "/reception",
+        trainer: "/trainer",
+        member: "/member",
       };
       const redirectPath = roleRedirects[roleCookie];
       if (redirectPath) {

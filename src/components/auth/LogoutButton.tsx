@@ -22,7 +22,7 @@ export default function LogoutButton({ className = "", showText = true }: Logout
       clearAuth();
       toast.success("Successfully logged out");
       setTimeout(() => {
-        window.location.href = "/prohealthclub/login";
+        window.location.href = "/login";
       }, 500);
     }
   };

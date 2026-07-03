@@ -44,7 +44,7 @@ const Navigation = () => {
 
           {/* CTA Buttons */}
           <div className="hidden lg:flex items-center space-x-3">
-            <a href="/prohealthclub/login/">
+            <a href="/login/">
               <Button variant="cta" size="lg" className="hover-glow font-bold">
                 Join Now
               </Button>
@@ -75,7 +75,7 @@ const Navigation = () => {
                   {item.label}
                 </a>
               ))}
-              <a href="/prohealthclub/login/" onClick={() => setIsOpen(false)} className="w-full">
+              <a href="/login/" onClick={() => setIsOpen(false)} className="w-full">
                 <Button variant="cta" size="lg" className="w-full hover-glow font-bold">
                   Join Now
                 </Button>

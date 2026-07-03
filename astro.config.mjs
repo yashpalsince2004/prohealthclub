@@ -5,7 +5,6 @@ import vercel from "@astrojs/vercel";
 
 // https://astro.build/config
 export default defineConfig({
-  base: "/prohealthclub/",
   output: "server",
   adapter: vercel({
     webAnalytics: { enabled: false },

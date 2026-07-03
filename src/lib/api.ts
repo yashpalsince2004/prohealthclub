@@ -49,7 +49,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     if (!refreshToken) {
       clearAuth();
       if (typeof window !== "undefined") {
-        window.location.href = "/prohealthclub/login";
+        window.location.href = "/login";
       }
       throw new ApiError("Session expired", "UNAUTHENTICATED");
     }
@@ -84,7 +84,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
         isRefreshing = false;
         clearAuth();
         if (typeof window !== "undefined") {
-          window.location.href = "/prohealthclub/login";
+          window.location.href = "/login";
         }
         throw new ApiError("Session expired", "UNAUTHENTICATED");
       }

@@ -67,7 +67,7 @@ export default function DashboardApp() {
   const handleSignOut = () => {
     toast.info("Signing out of ERP session...");
     setTimeout(() => {
-      window.location.href = "/prohealthclub/";
+      window.location.href = "/";
     }, 1200);
   };
 

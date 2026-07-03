@@ -1,0 +1,37 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navigation from '../components/Navigation';
+import Hero from '../components/Hero';
+import About from '../components/About';
+import Trainers from '../components/Trainers';
+import Transformations from '../components/Transformations';
+import Services from '../components/Services';
+import Pricing from '../components/Pricing';
+import Contact from '../components/Contact';
+import Footer from '../components/Footer';
+import FloatingActionButton from '../components/FloatingActionButton';
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+---
+
+<Layout title="Prro Health Cllub" description="Prro Health Cllub is the best-equipped gym in Kalyan with Being Strong machines, certified trainers, and 15+ years of experience. Join the best fitness center today!">
+  <TooltipProvider client:load>
+    <Toaster client:load />
+    <Sonner client:load />
+    <div class="min-h-screen overflow-x-hidden">
+      <Navigation client:load />
+      <main>
+        <Hero client:load />
+        <About client:visible />
+        <Trainers client:visible />
+        <Transformations client:visible />
+        <Services client:visible />
+        <Pricing client:visible />
+        <Contact client:visible />
+      </main>
+      <Footer />
+      <FloatingActionButton client:load />
+    </div>
+  </TooltipProvider>
+</Layout>
