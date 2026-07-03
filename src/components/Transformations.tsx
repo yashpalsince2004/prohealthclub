@@ -20,40 +20,40 @@ const Transformations = () => {
       duration: "3-Month Transformation",
       beforeWeight: "87 KG",
       afterWeight: "78 KG",
-      beforeImage: "/placeholder.svg",
-      afterImage: "/placeholder.svg"
+      beforeImage: "/prohealthclub/placeholder.svg",
+      afterImage: "/prohealthclub/placeholder.svg"
     },
     {
       name: "Priya Sharma",
       duration: "6-Month Transformation",
       beforeWeight: "75 KG",
       afterWeight: "65 KG",
-      beforeImage: "/placeholder.svg",
-      afterImage: "/placeholder.svg"
+      beforeImage: "/prohealthclub/placeholder.svg",
+      afterImage: "/prohealthclub/placeholder.svg"
     },
     {
       name: "Amit Patel",
       duration: "4-Month Transformation",
       beforeWeight: "92 KG",
       afterWeight: "82 KG",
-      beforeImage: "/placeholder.svg",
-      afterImage: "/placeholder.svg"
+      beforeImage: "/prohealthclub/placeholder.svg",
+      afterImage: "/prohealthclub/placeholder.svg"
     },
     {
       name: "Sneha Reddy",
       duration: "5-Month Transformation",
       beforeWeight: "68 KG",
       afterWeight: "60 KG",
-      beforeImage: "/placeholder.svg",
-      afterImage: "/placeholder.svg"
+      beforeImage: "/prohealthclub/placeholder.svg",
+      afterImage: "/prohealthclub/placeholder.svg"
     },
     {
       name: "Rajesh Singh",
       duration: "3-Month Transformation",
       beforeWeight: "95 KG",
       afterWeight: "85 KG",
-      beforeImage: "/placeholder.svg",
-      afterImage: "/placeholder.svg"
+      beforeImage: "/prohealthclub/placeholder.svg",
+      afterImage: "/prohealthclub/placeholder.svg"
     }
   ];
 
@@ -61,17 +61,17 @@ const Transformations = () => {
     {
       text: "Thanks to remote personal training, I experienced a significant transformation both physically and mentally in a short period of time. The support from my trainer allowed me to reach my fitness goals, and I continue to see progress. I now feel stronger and more confident!",
       author: "Omar A.",
-      avatar: "/placeholder.svg"
+      avatar: "/prohealthclub/placeholder.svg"
     },
     {
       text: "The personalized training program helped me lose 15kg in just 4 months. I never thought I could achieve such amazing results. The dedication and expertise of my trainer made all the difference!",
       author: "Sarah M.",
-      avatar: "/placeholder.svg"
+      avatar: "/prohealthclub/placeholder.svg"
     },
     {
       text: "From struggling with basic exercises to completing advanced workouts, my journey has been incredible. The constant motivation and customized meal plans were game-changers for me!",
       author: "Vikram T.",
-      avatar: "/placeholder.svg"
+      avatar: "/prohealthclub/placeholder.svg"
     }
   ];
 

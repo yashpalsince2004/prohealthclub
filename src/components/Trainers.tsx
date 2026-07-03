@@ -40,7 +40,7 @@ const Trainers = () => {
       {/* Floating Equipment Background */}
       <div ref={parallaxRef} className="hidden lg:block absolute bottom-10 left-0 w-1/4 h-48 opacity-5 pointer-events-none">
         <img 
-          src={battleRopes} 
+          src={battleRopes.src} 
           alt="" 
           className="w-full h-full object-cover rounded-r-3xl"
           style={{ transform: `translateY(${parallaxOffset}px)` }}
@@ -74,7 +74,7 @@ const Trainers = () => {
               {/* Image */}
               <div className="relative overflow-hidden aspect-square">
                 <img 
-                  src={trainer.image} 
+                  src={trainer.image.src} 
                   alt={trainer.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />

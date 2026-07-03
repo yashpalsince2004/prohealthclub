@@ -1,0 +1,33 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Redirecting... - Prro Health Club" description="Redirecting to your dashboard portal.">
+  <div class="min-h-screen bg-[#090909] text-white flex items-center justify-center font-sans">
+    <div className="text-center space-y-4">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <p className="text-sm font-semibold text-slate-400">Loading your profile desk...</p>
+    </div>
+  </div>
+
+  <script>
+    import { getUser, isAuthenticated } from "../lib/auth";
+
+    if (!isAuthenticated()) {
+      window.location.href = "/prohealthclub/login";
+    } else {
+      const user = getUser();
+      if (!user) {
+        window.location.href = "/prohealthclub/login";
+      } else {
+        const roleRedirects: Record<string, string> = {
+          admin: "/prohealthclub/admin",
+          receptionist: "/prohealthclub/reception",
+          trainer: "/prohealthclub/trainer",
+          member: "/prohealthclub/member",
+        };
+        window.location.href = roleRedirects[user.role] || "/prohealthclub/login";
+      }
+    }
+  </script>
+</Layout>

@@ -1,19 +1,18 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 import logo from "@/assets/logo.jpg";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { label: "Home", href: "#home", isHash: true },
-    { label: "About", href: "#about", isHash: true },
-    { label: "Trainers", href: "#trainers", isHash: true },
-    { label: "Transformations", href: "#transformations", isHash: true },
-    { label: "Services", href: "#services", isHash: true },
-    { label: "Contact", href: "#contact", isHash: true },
+    { label: "Home", href: "#home" },
+    { label: "About", href: "#about" },
+    { label: "Trainers", href: "#trainers" },
+    { label: "Transformations", href: "#transformations" },
+    { label: "Services", href: "#services" },
+    { label: "Contact", href: "#contact" },
   ];
 
   return (
@@ -23,7 +22,7 @@ const Navigation = () => {
           {/* Logo */}
           <a href="#home" className="flex items-center space-x-3">
             <img 
-              src={logo} 
+              src={logo.src} 
               alt="Prro Health Cllub Logo" 
               className="h-14 w-14 object-contain"
             />
@@ -33,31 +32,23 @@ const Navigation = () => {
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-1">
             {navItems.map((item) => (
-              item.isHash ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="px-4 py-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.label}
-                  to={item.href}
-                  className="px-4 py-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
-                >
-                  {item.label}
-                </Link>
-              )
+              <a
+                key={item.label}
+                href={item.href}
+                className="px-4 py-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
+              >
+                {item.label}
+              </a>
             ))}
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden lg:block">
-            <Button variant="cta" size="lg" className="hover-glow font-bold">
-              Join Now
-            </Button>
+          {/* CTA Buttons */}
+          <div className="hidden lg:flex items-center space-x-3">
+            <a href="/prohealthclub/login/">
+              <Button variant="cta" size="lg" className="hover-glow font-bold">
+                Join Now
+              </Button>
+            </a>
           </div>
 
           {/* Mobile Menu Button */}
@@ -75,29 +66,20 @@ const Navigation = () => {
           <div className="lg:hidden pb-6 animate-fade-in">
             <div className="flex flex-col space-y-3">
               {navItems.map((item) => (
-                item.isHash ? (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className="px-4 py-3 text-base font-semibold text-foreground hover:text-primary hover:bg-secondary rounded-lg transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.label}
-                    to={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className="px-4 py-3 text-base font-semibold text-foreground hover:text-primary hover:bg-secondary rounded-lg transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                )
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className="px-4 py-3 text-base font-semibold text-foreground hover:text-primary hover:bg-secondary rounded-lg transition-colors"
+                >
+                  {item.label}
+                </a>
               ))}
-              <Button variant="cta" size="lg" className="hover-glow font-bold">
-                Join Now
-              </Button>
+              <a href="/prohealthclub/login/" onClick={() => setIsOpen(false)} className="w-full">
+                <Button variant="cta" size="lg" className="w-full hover-glow font-bold">
+                  Join Now
+                </Button>
+              </a>
             </div>
           </div>
         )}
@@ -107,3 +89,4 @@ const Navigation = () => {
 };
 
 export default Navigation;
+

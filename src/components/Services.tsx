@@ -73,7 +73,7 @@ const Services = () => {
       {/* Background decoration */}
       <div ref={parallaxRef} className="absolute inset-0 opacity-5">
         <img 
-          src={equipmentImage} 
+          src={equipmentImage.src} 
           alt="" 
           className="w-full h-full object-cover"
           style={{ transform: `translateY(${parallaxOffset}px)` }}
@@ -107,7 +107,7 @@ const Services = () => {
               {/* Background Image */}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500">
                 <img 
-                  src={service.image} 
+                  src={service.image.src} 
                   alt="" 
                   className="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-700"
                 />

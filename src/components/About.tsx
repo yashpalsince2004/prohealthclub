@@ -35,7 +35,7 @@ const About = () => {
       {/* Floating Equipment Background */}
       <div ref={parallaxRef} className="hidden lg:block absolute top-20 right-0 w-1/3 h-64 opacity-5 pointer-events-none">
         <img 
-          src={gymMachines} 
+          src={gymMachines.src} 
           alt="" 
           className="w-full h-full object-cover rounded-l-3xl"
           style={{ transform: `translateY(${parallaxOffset}px)` }}
@@ -48,7 +48,7 @@ const About = () => {
           <div className={`relative transition-all duration-700 ${sectionVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
             <div className="relative z-10 group">
               <img 
-                src={ownerImage} 
+                src={ownerImage.src} 
                 alt="Mr. Kalyan - Owner of Prro Health Cllub" 
                 className="rounded-2xl shadow-2xl w-full max-w-md mx-auto transition-transform duration-500 group-hover:scale-105"
               />

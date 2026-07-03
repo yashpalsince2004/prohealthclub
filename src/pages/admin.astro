@@ -1,0 +1,8 @@
+---
+import Layout from "../layouts/Layout.astro";
+import AdminDashboardApp from "../components/admin/AdminDashboardApp";
+---
+
+<Layout title="Admin ERP Dashboard - Prro Health Club" description="Admin management hub for staff, trainer payouts, biometric gateways, and gym parameters.">
+  <AdminDashboardApp client:only="react" />
+</Layout>

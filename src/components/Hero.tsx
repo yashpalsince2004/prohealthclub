@@ -14,7 +14,7 @@ const Hero = () => {
       {/* Background Image with Overlay */}
       <div ref={bgRef} className="absolute inset-0 z-0">
         <img 
-          src={heroImage} 
+          src={heroImage.src} 
           alt="Prro Health Cllub gym interior" 
           className="w-full h-full object-cover opacity-50"
           style={{ transform: `translateY(${bgOffset}px)` }}
@@ -26,7 +26,7 @@ const Hero = () => {
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div ref={floatRef1}>
           <img 
-            src={dumbbells} 
+            src={dumbbells.src} 
             alt="" 
             className="absolute top-20 left-2 md:left-10 w-32 md:w-48 h-24 md:h-32 object-cover opacity-10 animate-float rounded-lg"
             style={{ 
@@ -37,7 +37,7 @@ const Hero = () => {
         </div>
         <div ref={floatRef2}>
           <img 
-            src={tyres} 
+            src={tyres.src} 
             alt="" 
             className="absolute bottom-32 right-2 md:right-10 w-40 md:w-56 h-32 md:h-40 object-cover opacity-10 animate-float rounded-lg"
             style={{ 
@@ -47,7 +47,7 @@ const Hero = () => {
           />
         </div>
         <img 
-          src={dumbbells} 
+          src={dumbbells.src} 
           alt="" 
           className="hidden md:block absolute top-1/2 right-20 w-40 h-28 object-cover opacity-5 animate-float rounded-lg"
           style={{ 

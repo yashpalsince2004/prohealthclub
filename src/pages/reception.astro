@@ -1,0 +1,8 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ReceptionDashboardApp from "../components/reception/ReceptionDashboardApp";
+---
+
+<Layout title="Receptionist Desk - Prro Health Club" description="Receptionist dashboard for check-ins, memberships, and billing.">
+  <ReceptionDashboardApp client:only="react" />
+</Layout>
