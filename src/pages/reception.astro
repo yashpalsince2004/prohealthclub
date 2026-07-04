@@ -1,8 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import ReceptionDashboardApp from "../components/reception/ReceptionDashboardApp";
+import { DashboardErrorBoundary } from "../components/dashboard/DashboardErrorBoundary";
 ---
 
 <Layout title="Receptionist Desk - Prro Health Club" description="Receptionist dashboard for check-ins, memberships, and billing.">
-  <ReceptionDashboardApp client:only="react" />
+  <DashboardErrorBoundary client:only="react" moduleName="Receptionist Desk">
+    <ReceptionDashboardApp client:only="react" />
+  </DashboardErrorBoundary>
 </Layout>

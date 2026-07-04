@@ -1,8 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import AdminDashboardApp from "../components/admin/AdminDashboardApp";
+import { DashboardErrorBoundary } from "../components/dashboard/DashboardErrorBoundary";
 ---
 
 <Layout title="Admin ERP Dashboard - Prro Health Club" description="Admin management hub for staff, trainer payouts, biometric gateways, and gym parameters.">
-  <AdminDashboardApp client:only="react" />
+  <DashboardErrorBoundary client:only="react" moduleName="Admin Dashboard">
+    <AdminDashboardApp client:only="react" />
+  </DashboardErrorBoundary>
 </Layout>

@@ -1,8 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import TrainerDashboardApp from "../components/trainer/TrainerDashboardApp";
+import { DashboardErrorBoundary } from "../components/dashboard/DashboardErrorBoundary";
 ---
 
 <Layout title="Trainer Portal - Prro Health Club" description="Trainer panel for client programs and splits.">
-  <TrainerDashboardApp client:only="react" />
+  <DashboardErrorBoundary client:only="react" moduleName="Trainer Portal">
+    <TrainerDashboardApp client:only="react" />
+  </DashboardErrorBoundary>
 </Layout>

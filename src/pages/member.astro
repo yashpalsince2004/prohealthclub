@@ -1,8 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import MemberDashboardApp from "../components/member/MemberDashboardApp";
+import { DashboardErrorBoundary } from "../components/dashboard/DashboardErrorBoundary";
 ---
 
 <Layout title="Member Card - Prro Health Club" description="Track your workouts, diet plans, memberships, and attendances.">
-  <MemberDashboardApp client:only="react" />
+  <DashboardErrorBoundary client:only="react" moduleName="Member Portal">
+    <MemberDashboardApp client:only="react" />
+  </DashboardErrorBoundary>
 </Layout>
