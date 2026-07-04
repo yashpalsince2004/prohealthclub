@@ -1,7 +1,7 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
-import tailwind from "@astrojs/tailwind";
 import vercel from "@astrojs/vercel";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,7 +11,7 @@ export default defineConfig({
     speedInsights: { enabled: false },
     imageService: false,
   }),
-  integrations: [react(), tailwind()],
+  integrations: [react()],
   server: {
     port: 8080,
     headers: {
@@ -21,6 +21,7 @@ export default defineConfig({
     },
   },
   vite: {
+    plugins: [tailwindcss()],
     resolve: {
       alias: {
         "@": "/src",
@@ -28,3 +29,4 @@ export default defineConfig({
     },
   },
 });
+
