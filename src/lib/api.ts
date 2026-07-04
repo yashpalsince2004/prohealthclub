@@ -1,5 +1,5 @@
 import { getAccessToken, getRefreshToken, setTokens, clearAuth } from "./auth";
-import type { ApiResponse, ApiSuccess, ApiError as ApiErrorInterface } from "./types";
+import type { ApiResponse } from "./types";
 
 const BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 
@@ -15,6 +15,7 @@ export class ApiError extends Error {
   }
 }
 
+// Token refresh state — prevents concurrent refresh storms
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
 
@@ -29,7 +30,7 @@ function onRefreshed(token: string) {
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-  
+
   // Attach auth token if available
   const headers = new Headers(options.headers || {});
   const token = getAccessToken();
@@ -37,85 +38,76 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const finalOptions = {
-    ...options,
-    headers,
-  };
+  const response = await fetch(url, { ...options, headers });
 
-  const response = await fetch(url, finalOptions);
-
+  // ── 401 handling: attempt silent token refresh ──────────────────────────
   if (response.status === 401) {
     const refreshToken = getRefreshToken();
+
     if (!refreshToken) {
+      // No refresh token — session is fully dead. Throw; useAuth redirects.
       clearAuth();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      throw new ApiError("Session expired", "UNAUTHENTICATED");
+      throw new ApiError("Session expired. Please log in again.", "UNAUTHENTICATED");
     }
 
-    // Attempt token refresh
     if (!isRefreshing) {
       isRefreshing = true;
       try {
         const refreshResponse = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: refreshToken }),
         });
 
-        if (!refreshResponse.ok) {
-          throw new Error("Refresh token invalid");
-        }
+        if (!refreshResponse.ok) throw new Error("Refresh rejected");
 
-        const refreshData: ApiResponse<{ access_token: string; refresh_token: string }> = await refreshResponse.json();
-        
+        const refreshData: ApiResponse<{ access_token: string; refresh_token: string }> =
+          await refreshResponse.json();
+
         if (refreshData.success) {
           const { access_token, refresh_token } = refreshData.data;
           setTokens(access_token, refresh_token);
           isRefreshing = false;
           onRefreshed(access_token);
         } else {
-          throw new Error("Refresh failed");
+          throw new Error("Refresh payload invalid");
         }
-      } catch (err) {
+      } catch {
         isRefreshing = false;
         clearAuth();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
-        }
-        throw new ApiError("Session expired", "UNAUTHENTICATED");
+        // Throw — useAuth decides whether to redirect to /login
+        throw new ApiError("Session expired. Please log in again.", "UNAUTHENTICATED");
       }
     }
 
-    // Wait for the token refresh and retry
+    // Queue request until refresh completes, then retry with new token
     return new Promise<T>((resolve, reject) => {
-      subscribeTokenRefresh((newToken) => {
+      subscribeTokenRefresh(async (newToken) => {
         headers.set("Authorization", `Bearer ${newToken}`);
-        fetch(url, { ...options, headers })
-          .then(async (res) => {
-            const body: ApiResponse<T> = await res.json();
-            if (body.success) {
-              resolve(body.data);
-            } else {
-              reject(new ApiError(body.error.message, body.error.code, body.error.details));
-            }
-          })
-          .catch(reject);
+        try {
+          const retryRes = await fetch(url, { ...options, headers });
+          const retryBody: ApiResponse<T> = await retryRes.json();
+          if (retryBody.success) {
+            resolve(retryBody.data);
+          } else {
+            reject(
+              new ApiError(retryBody.error.message, retryBody.error.code, retryBody.error.details)
+            );
+          }
+        } catch (err) {
+          reject(err);
+        }
       });
     });
   }
+  // ────────────────────────────────────────────────────────────────────────
 
   let body: ApiResponse<T>;
   try {
     body = await response.json();
-  } catch (parseErr) {
-    if (response.ok) {
-      return {} as T;
-    }
-    throw new ApiError("Failed to parse response payload", "SERVER_ERROR");
+  } catch {
+    if (response.ok) return {} as T;
+    throw new ApiError("Failed to parse server response", "SERVER_ERROR");
   }
 
   if (!body.success) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, Phone } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
@@ -43,28 +43,27 @@ const LoginForm = () => {
       const rawBody = await loginRes.json();
       const loginData: LoginResponse = rawBody.success ? rawBody.data : rawBody;
 
-      // 2. Set tokens in localStorage and cookies
+      // 2. Set tokens in localStorage and cookies (localStorage.setItem is synchronous)
       setTokens(loginData.access_token, loginData.refresh_token);
 
-      // 3. Fetch user details
+      // 3. Fetch user details with the new access token
       const userContext = await api.get<UserContext>("/api/v1/auth/me");
 
-      // 4. Save user details in storage and cookie
+      // 4. Persist user to localStorage and role cookie
       setUser(userContext);
 
-      toast.success(`Successfully signed in as ${userContext.profile?.full_name || userContext.email}!`);
-
-      // 5. Redirect based on user role — direct to role dashboard (no /dashboard hop)
+      // 5. Redirect directly to role dashboard — no intermediate /dashboard page
       const roleRedirects: Record<string, string> = {
         admin: "/admin",
         receptionist: "/reception",
         trainer: "/trainer",
         member: "/member",
       };
-      // Small delay so toast renders, then redirect
-      setTimeout(() => {
-        window.location.replace(roleRedirects[userContext.role] || "/login");
-      }, 500);
+
+      toast.success(`Welcome back, ${userContext.profile?.full_name || userContext.email}!`);
+
+      // replace() so login page is removed from browser history
+      window.location.replace(roleRedirects[userContext.role] || "/login");
     } catch (err: any) {
       toast.error(err.message || "An unexpected error occurred");
     } finally {
