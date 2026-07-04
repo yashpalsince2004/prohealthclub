@@ -169,11 +169,7 @@ const LoginForm = () => {
             </Label>
           </div>
           <a
-            href="#forgot-password"
-            onClick={(e) => {
-              e.preventDefault();
-              toast.info("Password resets are managed at the front desk.");
-            }}
+            href="/forgot-password"
             className="font-bold text-primary hover:text-primary/80 transition-colors"
           >
             Forgot password

@@ -7,6 +7,7 @@ import AttendanceHistory from "../dashboard/member/AttendanceHistory";
 import WorkoutPlanView from "../dashboard/member/WorkoutPlanView";
 import DietPlanView from "../dashboard/member/DietPlanView";
 import SettingsModule from "../dashboard/SettingsModule";
+import PaymentHistory from "../dashboard/member/PaymentHistory";
 import { Toaster } from "sonner";
 import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../lib/api";
@@ -49,7 +50,7 @@ export default function MemberDashboardApp() {
 
   const userName = user?.profile?.full_name || "Club Member";
   const userEmail = user?.email || "";
-  const memberId = user?.profile?.id || "";
+  const memberId = user?.profile?.member_id || "";
 
   return (
     <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
@@ -161,13 +162,7 @@ export default function MemberDashboardApp() {
 
               {currentTab === "billing" && (
                 <div className="space-y-6">
-                  <div>
-                    <h2 className="text-sm font-black uppercase tracking-wider text-white">Workout Prescriptions</h2>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                      Your routine and active splits split routines
-                    </p>
-                  </div>
-                  <WorkoutPlanView />
+                  {memberId && <PaymentHistory memberId={memberId} />}
                 </div>
               )}
 
