@@ -54,16 +54,17 @@ const LoginForm = () => {
 
       toast.success(`Successfully signed in as ${userContext.profile?.full_name || userContext.email}!`);
 
-      // 5. Redirect based on user role
+      // 5. Redirect based on user role — direct to role dashboard (no /dashboard hop)
+      const roleRedirects: Record<string, string> = {
+        admin: "/admin",
+        receptionist: "/reception",
+        trainer: "/trainer",
+        member: "/member",
+      };
+      // Small delay so toast renders, then redirect
       setTimeout(() => {
-        const roleRedirects = {
-          admin: "/admin",
-          receptionist: "/reception",
-          trainer: "/trainer",
-          member: "/member",
-        };
-        window.location.href = roleRedirects[userContext.role] || "/login";
-      }, 1000);
+        window.location.replace(roleRedirects[userContext.role] || "/login");
+      }, 500);
     } catch (err: any) {
       toast.error(err.message || "An unexpected error occurred");
     } finally {

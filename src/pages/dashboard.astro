@@ -13,21 +13,28 @@ import Layout from "../layouts/Layout.astro";
   <script>
     import { getUser, isAuthenticated } from "../lib/auth";
 
-    if (!isAuthenticated()) {
-      window.location.href = "/login";
-    } else {
+    function redirectByRole() {
+      if (!isAuthenticated()) {
+        window.location.replace("/login");
+        return;
+      }
       const user = getUser();
       if (!user) {
-        window.location.href = "/login";
-      } else {
-        const roleRedirects: Record<string, string> = {
-          admin: "/admin",
-          receptionist: "/reception",
-          trainer: "/trainer",
-          member: "/member",
-        };
-        window.location.href = roleRedirects[user.role] || "/login";
+        window.location.replace("/login");
+        return;
       }
+      const roleRedirects: Record<string, string> = {
+        admin: "/admin",
+        receptionist: "/reception",
+        trainer: "/trainer",
+        member: "/member",
+      };
+      window.location.replace(roleRedirects[user.role] || "/login");
     }
+
+    // Small delay to let any in-flight localStorage.setItem from the login
+    // page settle before we read. localStorage is sync but cross-page
+    // navigation can occasionally race on slow devices.
+    setTimeout(redirectByRole, 50);
   </script>
 </Layout>
