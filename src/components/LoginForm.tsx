@@ -19,19 +19,15 @@ const LoginForm = () => {
   const executeLogin = async (loginEmail: string, loginPass: string) => {
     setLoading(true);
     try {
-      // 1. Authenticate with OAuth2 Form payload format expected by FastAPI OAuth2
-      const formData = new URLSearchParams();
-      formData.append("username", loginEmail);
-      formData.append("password", loginPass);
-
+      // 1. Authenticate with JSON payload expected by FastAPI LoginRequest
       const loginRes = await fetch(
         `${import.meta.env.PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/login`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: formData,
+          body: JSON.stringify({ email: loginEmail, password: loginPass }),
         }
       );
 
