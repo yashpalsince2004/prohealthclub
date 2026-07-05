@@ -48,7 +48,7 @@ export default function AddMemberForm({
   const [medicalNotes, setMedicalNotes] = useState("");
 
   // Step 2: Membership Setup
-  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedPlanId, setSelectedPlanId] = useState("no-plan"); // 'no-plan' = sentinel; empty string crashes Radix Select
   const [selectedTrainerId, setSelectedTrainerId] = useState("");
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -190,7 +190,7 @@ export default function AddMemberForm({
         notes: (medicalNotes.trim() || membershipNotes.trim()) || null,
         joining_date: startDate,
         // Plan and trainer are handled atomically by the backend
-        plan_id: selectedPlanId || null,
+        plan_id: selectedPlanId && selectedPlanId !== "no-plan" ? selectedPlanId : null,
         trainer_id:
           selectedTrainerId && selectedTrainerId !== "none"
             ? selectedTrainerId
@@ -650,7 +650,7 @@ export default function AddMemberForm({
                         <SelectValue placeholder="No plan (skip)" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1a1a] border border-white/5 text-white">
-                        <SelectItem value="">No Subscription</SelectItem>
+                        <SelectItem value="no-plan">No Subscription</SelectItem>
                         {plans.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.name} — ₹{p.price}
