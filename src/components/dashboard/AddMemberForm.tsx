@@ -77,6 +77,15 @@ export default function AddMemberForm({
     fetchData();
   }, []);
 
+  // ── Member ID helpers ─────────────────────────────────────────
+  /** Convert a UUID to a human-readable PHC ID without exposing raw UUID. */
+  const uuidToMemberId = (uuid: string): string => {
+    // Take last 12 hex chars, parse as base-16 number, mod to 6 digits
+    const hex = uuid.replace(/-/g, "").slice(-12);
+    const num = parseInt(hex, 16) % 1_000_000;
+    return `PHC${String(num).padStart(6, "0")}`;
+  };
+
   // ── Password helpers ─────────────────────────────────────────
   const handleGeneratePassword = () => {
     const chars =
@@ -203,7 +212,8 @@ export default function AddMemberForm({
           : "General Coaching",
         startDate,
         password,
-        memberId: member.id,
+        memberId: member.id,                   // raw UUID for API use
+        displayId: uuidToMemberId(member.id),  // human-readable for UI
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to register member");
@@ -212,46 +222,138 @@ export default function AddMemberForm({
     }
   };
 
-  // ── Print welcome card ───────────────────────────────────────
+  // ── Print clean credential card (no browser chrome) ─────────
   const handlePrint = () => {
+    if (!createdSummary) return;
+    const s = createdSummary;
     const printWindow = window.open("", "_blank");
-    if (printWindow && createdSummary) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Welcome Card — Prro Health Club</title>
-            <style>
-              body { font-family: sans-serif; background: #fff; padding: 40px; text-align: center; }
-              .card { border: 2px solid #ff6b00; border-radius: 20px; padding: 30px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-              h1 { color: #ff6b00; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; font-size: 24px; }
-              h2 { font-size: 11px; text-transform: uppercase; color: #666; margin-top: 0; margin-bottom: 20px; }
-              .field { margin: 15px 0; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-              .label { font-size: 10px; text-transform: uppercase; color: #888; font-weight: bold; }
-              .value { font-size: 14px; font-weight: bold; color: #111; margin-top: 2px; }
-              .footer { margin-top: 30px; font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
-              .pw { font-family: monospace; background: #f5f5f5; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h1>Prro Health Club</h1>
-              <h2>Welcome to the Club!</h2>
-              <div class="field"><div class="label">Member Name</div><div class="value">${createdSummary.fullName}</div></div>
-              <div class="field"><div class="label">Email (Login ID)</div><div class="value">${createdSummary.email}</div></div>
-              <div class="field"><div class="label">Contact Phone</div><div class="value">${createdSummary.phone}</div></div>
-              <div class="field"><div class="label">Membership Plan</div><div class="value">${createdSummary.planName}</div></div>
-              <div class="field"><div class="label">Assigned Coach</div><div class="value">${createdSummary.trainerName}</div></div>
-              <div class="field"><div class="label">Portal Password</div><div class="value"><span class="pw">${createdSummary.password}</span></div></div>
-              <div class="footer">Powered by Prro Health Club</div>
-            </div>
-            <script>window.onload = function() { window.print(); window.close(); }</script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Member Credential Card — ${s.displayId}</title>
+  <style>
+    @media print { @page { margin: 0; size: 85mm 150mm; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 10mm;
     }
+    .card {
+      width: 65mm;
+      border: 1.5px solid #FF6B00;
+      border-radius: 6mm;
+      overflow: hidden;
+    }
+    .header {
+      background: #FF6B00;
+      color: #fff;
+      text-align: center;
+      padding: 5mm 4mm 3mm;
+    }
+    .header h1 {
+      font-size: 11pt;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .header p {
+      font-size: 7pt;
+      opacity: 0.85;
+      margin-top: 1mm;
+    }
+    .id-band {
+      background: #fff7f0;
+      border-bottom: 1px solid #ffe0cc;
+      padding: 3mm 4mm;
+      text-align: center;
+    }
+    .id-band .id-label {
+      font-size: 6pt;
+      text-transform: uppercase;
+      color: #999;
+      letter-spacing: 1px;
+    }
+    .id-band .id-value {
+      font-size: 14pt;
+      font-weight: 900;
+      color: #FF6B00;
+      letter-spacing: 2px;
+      margin-top: 1mm;
+    }
+    .fields { padding: 3mm 4mm; }
+    .field {
+      padding: 2.5mm 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .field:last-child { border-bottom: none; }
+    .field .lbl {
+      font-size: 6pt;
+      text-transform: uppercase;
+      color: #aaa;
+      letter-spacing: 0.8px;
+    }
+    .field .val {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #111;
+      margin-top: 0.5mm;
+    }
+    .field .val.mono {
+      font-family: 'Courier New', monospace;
+      background: #f5f5f5;
+      padding: 1mm 2mm;
+      border-radius: 2mm;
+      display: inline-block;
+      font-size: 10pt;
+    }
+    .footer {
+      background: #fafafa;
+      border-top: 1px solid #f0f0f0;
+      padding: 2mm 4mm;
+      text-align: center;
+      font-size: 6pt;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Prro Health Club</h1>
+      <p>Member Welcome Card</p>
+    </div>
+    <div class="id-band">
+      <div class="id-label">Member ID</div>
+      <div class="id-value">${s.displayId}</div>
+    </div>
+    <div class="fields">
+      <div class="field"><div class="lbl">Name</div><div class="val">${s.fullName}</div></div>
+      <div class="field"><div class="lbl">Email (Login)</div><div class="val">${s.email}</div></div>
+      <div class="field"><div class="lbl">Phone</div><div class="val">${s.phone || '—'}</div></div>
+      <div class="field"><div class="lbl">Password</div><div class="val"><span class="mono">${s.password}</span></div></div>
+      <div class="field"><div class="lbl">Plan</div><div class="val">${s.planName}</div></div>
+      <div class="field"><div class="lbl">Trainer</div><div class="val">${s.trainerName}</div></div>
+    </div>
+    <div class="footer">prohealthclub-two.vercel.app/login</div>
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
+  /**
+   * "Add Another" — resets the form but keeps the dialog open.
+   * Does NOT call onSuccess so the dialog stays mounted.
+   */
   const handleReset = () => {
     setCreatedSummary(null);
     setCurrentStep(1);
@@ -270,24 +372,31 @@ export default function AddMemberForm({
     setMembershipNotes("");
     setPassword("");
     setShowPassword(false);
-    if (onSuccess) onSuccess();
+    // intentionally NOT calling onSuccess — dialog stays open for next member
   };
 
   // ── Success card ─────────────────────────────────────────────
+  const PORTAL_URL = "https://prohealthclub-two.vercel.app/login";
+
   const handleCopyCredentials = () => {
     if (!createdSummary) return;
     const text = [
-      `Prro Health Club — Member Credentials`,
-      `──────────────────────────────`,
-      `Name     : ${createdSummary.fullName}`,
-      `Member ID: ${createdSummary.memberId}`,
-      `Email    : ${createdSummary.email}`,
-      `Password : ${createdSummary.password}`,
-      `Plan     : ${createdSummary.planName}`,
-      `Trainer  : ${createdSummary.trainerName}`,
+      `🏋️ Prro Health Club — Welcome!`,
+      ``,
+      `Member ID : ${createdSummary.displayId}`,
+      `Name      : ${createdSummary.fullName}`,
+      ``,
+      `── Portal Login ──`,
+      `Login     : ${PORTAL_URL}`,
+      `Email     : ${createdSummary.email}`,
+      `Password  : ${createdSummary.password}`,
+      ``,
+      `── Membership ──`,
+      `Plan      : ${createdSummary.planName}`,
+      `Trainer   : ${createdSummary.trainerName}`,
     ].join("\n");
     navigator.clipboard.writeText(text);
-    toast.success("Credentials copied to clipboard");
+    toast.success("Credentials copied — ready to share on WhatsApp");
   };
 
   if (createdSummary) {
@@ -306,11 +415,11 @@ export default function AddMemberForm({
 
         {/* Credentials card */}
         <div className="border border-white/8 rounded-2xl overflow-hidden">
-          {/* Member ID banner */}
+          {/* Member ID banner — show readable PHC ID, not raw UUID */}
           <div className="bg-[#FF6B00]/8 border-b border-white/5 px-5 py-3 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Member ID</span>
-            <span className="text-[11px] font-mono font-black text-[#FF6B00]">
-              {createdSummary.memberId?.substring(0, 8).toUpperCase()}
+            <span className="text-sm font-mono font-black text-[#FF6B00] tracking-widest">
+              {createdSummary.displayId}
             </span>
           </div>
 
@@ -323,18 +432,20 @@ export default function AddMemberForm({
             <CredRow icon="🏋️" label="Trainer"  value={createdSummary.trainerName} />
           </div>
 
-          {/* Password row — special treatment */}
+          {/* Password row — monospace + copy */}
           <div className="px-5 py-3.5 bg-black/30 flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Portal Password</p>
-              <p className="text-sm font-mono font-black text-white mt-0.5">{createdSummary.password}</p>
+              <p className="text-base font-mono font-black text-white mt-1 tracking-widest">
+                {createdSummary.password}
+              </p>
             </div>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(createdSummary.password);
                 toast.success("Password copied");
               }}
-              className="h-8 px-3 flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[10px] font-bold transition-all border border-white/5"
+              className="h-8 px-3 flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[10px] font-bold transition-all border border-white/5"
             >
               <Copy size={12} /> Copy
             </button>
@@ -366,6 +477,7 @@ export default function AddMemberForm({
           <Button
             onClick={() => onSuccess?.()}
             className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider"
+            title="Close dialog and refresh member list"
           >
             Done
           </Button>
