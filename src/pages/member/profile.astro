@@ -1,0 +1,26 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import MemberProfile from "../../components/dashboard/member/MemberProfile";
+import { DashboardErrorBoundary } from "../../components/dashboard/DashboardErrorBoundary";
+import Sidebar from "../../components/dashboard/Sidebar";
+import Navbar from "../../components/dashboard/Navbar";
+import { Toaster } from "sonner";
+---
+
+<Layout title="My Profile - Prro Health Club" description="Manage your contact details and account passwords.">
+  <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
+    <Sidebar client:only="react" isCollapsed={false} onToggleCollapse={() => {}} />
+
+    <div className="flex-1 flex flex-col min-h-screen pl-[284px] pt-[88px] pr-4 pb-4">
+      <Navbar client:only="react" />
+
+      <main className="flex-1 min-h-0">
+        <DashboardErrorBoundary client:only="react" moduleName="Member Profile">
+          <MemberProfile client:only="react" />
+        </DashboardErrorBoundary>
+      </main>
+    </div>
+    
+    <Toaster client:only="react" position="bottom-right" richColors theme="dark" />
+  </div>
+</Layout>

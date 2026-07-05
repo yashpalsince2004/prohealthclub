@@ -1,0 +1,11 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ReceptionistManagement from "../../components/admin/ReceptionistManagement";
+import { DashboardErrorBoundary } from "../../components/dashboard/DashboardErrorBoundary";
+---
+
+<Layout title="Receptionist Management - Prro Health Club" description="Configure receptionists staff, shifts, and salary payrolls.">
+  <DashboardErrorBoundary client:only="react" moduleName="Receptionists Control">
+    <ReceptionistManagement client:only="react" />
+  </DashboardErrorBoundary>
+</Layout>
