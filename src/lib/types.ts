@@ -12,6 +12,8 @@ export interface UserContext {
   role: 'admin' | 'trainer' | 'receptionist' | 'member';
   is_active: boolean;
   profile: ProfileResponse | null;
+  trainer_id: string | null;
+  member_id: string | null;
 }
 
 // Profiles & Members

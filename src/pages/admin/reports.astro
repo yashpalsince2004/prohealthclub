@@ -1,0 +1,35 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ReportsPanel from "../../components/admin/ReportsPanel";
+import { DashboardErrorBoundary } from "../../components/dashboard/DashboardErrorBoundary";
+import Sidebar from "../../components/dashboard/Sidebar";
+import Navbar from "../../components/dashboard/Navbar";
+import { Toaster } from "sonner";
+---
+
+<Layout title="Operational Reports - Prro Health Club" description="Export formatted Excel workbooks of members, attendance, and finance audits.">
+  <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
+    <Sidebar client:only="react" currentTab="reports" isCollapsed={false} onToggleCollapse={() => {}} />
+
+    <div className="flex-1 flex flex-col min-h-screen pl-[284px] pt-[88px] pr-4 pb-4">
+      <Navbar client:only="react" />
+
+      <main className="flex-1 min-h-0 space-y-6 pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-white">Operational Reports</h2>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+              Download formatted Excel sheets for financial reviews, attendance, and renewals
+            </p>
+          </div>
+        </div>
+
+        <DashboardErrorBoundary client:only="react" moduleName="Operational Reports">
+          <ReportsPanel client:only="react" />
+        </DashboardErrorBoundary>
+      </main>
+    </div>
+    
+    <Toaster client:only="react" position="bottom-right" richColors theme="dark" />
+  </div>
+</Layout>

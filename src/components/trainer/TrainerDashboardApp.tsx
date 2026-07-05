@@ -4,7 +4,9 @@ import Sidebar, { SidebarTab } from "../dashboard/Sidebar";
 import Navbar from "../dashboard/Navbar";
 import AssignedMembers from "../dashboard/trainer/AssignedMembers";
 import WorkoutPlanBuilder from "../dashboard/trainer/WorkoutPlanBuilder";
+import DietPlanBuilder from "../dashboard/trainer/DietPlanBuilder";
 import SettingsModule from "../dashboard/SettingsModule";
+import { Dumbbell, Apple, Clock, Users, LayoutDashboard, ShieldAlert } from "lucide-react";
 import { Toaster } from "sonner";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -12,13 +14,6 @@ export default function TrainerDashboardApp() {
   const { user, loading: authLoading } = useAuth(["trainer"]);
   const [currentTab, setCurrentTab] = useState<SidebarTab>("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // States to pass to WorkoutPlanBuilder
-  const [builderParams, setBuilderParams] = useState<{
-    memberId?: string;
-    memberName?: string;
-    planType?: "workout" | "diet";
-  } | null>(null);
 
   if (authLoading) {
     return (
@@ -31,20 +26,12 @@ export default function TrainerDashboardApp() {
     );
   }
 
-  const handleSelectMemberForPlan = (memberId: string, memberName: string, planType: "workout" | "diet") => {
-    setBuilderParams({ memberId, memberName, planType });
-    setCurrentTab("billing"); // map to the builder page view
-  };
-
   return (
     <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
-        onChangeTab={(tab) => {
-          setCurrentTab(tab);
-          if (tab !== "billing") setBuilderParams(null);
-        }}
+        onChangeTab={(tab) => setCurrentTab(tab)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -80,27 +67,64 @@ export default function TrainerDashboardApp() {
                       Manage client rosters, fitness goals, splits, and nutrition schedules
                     </p>
                   </div>
-                  <AssignedMembers onSelectMemberForPlan={handleSelectMemberForPlan} />
+                  <AssignedMembers />
                 </div>
               )}
 
               {currentTab === "members" && (
                 <div className="space-y-6">
-                  <AssignedMembers onSelectMemberForPlan={handleSelectMemberForPlan} />
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-wider text-white">My Members</h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                      View details and contact channels for your active trainees
+                    </p>
+                  </div>
+                  <AssignedMembers />
                 </div>
               )}
 
-              {/* Billing tab acts as our dynamic Workout/Diet program designer */}
-              {currentTab === "billing" && (
-                <WorkoutPlanBuilder
-                  initialMemberId={builderParams?.memberId}
-                  initialMemberName={builderParams?.memberName}
-                  initialType={builderParams?.planType}
-                  onCancel={() => {
-                    setBuilderParams(null);
-                    setCurrentTab("dashboard");
-                  }}
-                />
+              {currentTab === "workouts" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-wider text-white">Workout Splits</h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                      Design exercise splits, overloading structures, and workout schedules
+                    </p>
+                  </div>
+                  <WorkoutPlanBuilder />
+                </div>
+              )}
+
+              {currentTab === "diets" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-wider text-white">Diet Schedules</h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                      Configure target macros, meal divisions, and caloric thresholds
+                    </p>
+                  </div>
+                  <DietPlanBuilder />
+                </div>
+              )}
+
+              {currentTab === "attendance" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-wider text-white">Client Attendance</h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                      Track the active physical presence of your trainees in the club
+                    </p>
+                  </div>
+                  <div className="bg-[#121212] border border-white/5 p-8 rounded-3xl text-center space-y-4">
+                    <Clock className="w-12 h-12 text-[#FF6B00] mx-auto" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-black uppercase text-white">Trainee Check-ins Log</h4>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                        Check-in logs sync automatically via terminal biometric sweeps.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {currentTab === "settings" && (

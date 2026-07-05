@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { User, Phone, MapPin, ShieldAlert, Key, Edit3, Save, X, Activity } from "lucide-react";
+import { User, Phone, MapPin, Key, Edit3, Save, X, Activity, Award, Briefcase } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
+import { Textarea } from "../../ui/textarea";
 import { toast } from "sonner";
 import { api } from "../../../lib/api";
 import { useAuth } from "../../../hooks/useAuth";
 import AvatarUpload from "../../common/AvatarUpload";
 
-export default function MemberProfile() {
+export default function TrainerProfilePage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
+  const [trainer, setTrainer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
   // Edit fields state
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
+  const [bio, setBio] = useState("");
+  const [newCert, setNewCert] = useState("");
+  const [certifications, setCertifications] = useState<string[]>([]);
 
   // Change Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -26,26 +29,36 @@ export default function MemberProfile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const fetchProfile = async () => {
+  const fetchTrainer = async () => {
     setLoading(true);
     try {
+      // 1. Get user profile details
       const res = await api.get<any>("/api/v1/auth/me");
-      setProfile(res.profile || null);
-      if (res.profile) {
-        setPhone(res.profile.phone || "");
-        setAddress(res.profile.address || "");
-        setEmergencyName(res.profile.emergency_contact_name || "");
-        setEmergencyPhone(res.profile.emergency_contact_phone || "");
+      if (res.trainer_id) {
+        // 2. Fetch trainer details using trainer_id
+        const tRes = await api.get<any>(`/api/v1/trainers/${res.trainer_id}`);
+        setTrainer({
+          ...tRes,
+          user_id: res.id,
+          email: res.email,
+          avatar_url: res.profile?.avatar_url || null
+        });
+        
+        setPhone(tRes.profile?.phone || "");
+        setSpecialization(tRes.specialization || "");
+        setExperienceYears(tRes.experience_years ? String(tRes.experience_years) : "");
+        setBio(tRes.bio || "");
+        setCertifications(tRes.certifications || []);
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to load user profile");
+      toast.error(err.message || "Failed to load trainer profile");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProfile();
+    fetchTrainer();
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -56,18 +69,32 @@ export default function MemberProfile() {
     }
 
     try {
-      await api.patch(`/api/v1/members/${profile.member_id}`, {
+      await api.patch(`/api/v1/trainers/${trainer.id}`, {
+        full_name: trainer.profile?.full_name,
         phone,
-        address: address || null,
-        emergency_contact_name: emergencyName || null,
-        emergency_contact_phone: emergencyPhone || null,
+        specialization: specialization || null,
+        experience_years: experienceYears ? parseInt(experienceYears) : null,
+        certifications,
+        bio: bio || null,
       });
-      toast.success("Profile details updated successfully!");
+      toast.success("Trainer profile updated successfully!");
       setIsEditing(false);
-      fetchProfile();
+      fetchTrainer();
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");
     }
+  };
+
+  const handleAddCert = () => {
+    if (!newCert.trim()) return;
+    setCertifications([...certifications, newCert.trim()]);
+    setNewCert("");
+  };
+
+  const handleRemoveCert = (idx: number) => {
+    const copy = [...certifications];
+    copy.splice(idx, 1);
+    setCertifications(copy);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -111,43 +138,38 @@ export default function MemberProfile() {
     );
   }
 
-  if (!profile) {
+  if (!trainer) {
     return (
       <div className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">
-        Profile Context Error
+        Trainer Context Error
       </div>
     );
   }
-
-  // Get initials
-  const initials = profile.full_name
-    ? profile.full_name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-    : "U";
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pt-4">
       {/* Profile Header Banner */}
       <div className="bg-[#111111] border border-white/5 p-6 rounded-3xl flex flex-col md:flex-row items-center gap-6 shadow-xl relative overflow-hidden">
         <AvatarUpload
-          userId={user?.id || ""}
-          idToUpdate={profile.member_id}
-          role="member"
-          currentAvatarUrl={profile.avatar_url}
-          name={profile.full_name}
+          userId={trainer.user_id}
+          idToUpdate={trainer.id}
+          role="trainer"
+          currentAvatarUrl={trainer.avatar_url}
+          name={trainer.profile?.full_name || ""}
           onUploadSuccess={(url) => {
-            setProfile((prev: any) => prev ? { ...prev, avatar_url: url } : null);
+            setTrainer((prev: any) => prev ? { ...prev, avatar_url: url } : null);
           }}
         />
         <div className="text-center md:text-left flex-1 space-y-1">
-          <h2 className="text-lg font-black uppercase tracking-wider text-white">{profile.full_name}</h2>
-          <p className="text-xs text-slate-400 font-medium">Active Member ID: {profile.member_id}</p>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-green-500/10 text-green-500 mt-1">
+          <h2 className="text-lg font-black uppercase tracking-wider text-white">
+            {trainer.profile?.full_name}
+          </h2>
+          <p className="text-xs text-slate-400 font-medium capitalize">
+            Certified Instructor &bull; {trainer.specialization || "General Coaching"}
+          </p>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-[#FF6B00]/10 text-[#FF6B00] mt-1">
             <Activity size={10} />
-            Verified Member
+            Coaching Active
           </span>
         </div>
         {!isEditing && (
@@ -165,9 +187,9 @@ export default function MemberProfile() {
         {/* Profile details or Edit Form */}
         <div className="bg-[#111111] border border-white/5 p-6 rounded-3xl shadow-xl space-y-6">
           <div className="border-b border-white/5 pb-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-white">Contact & Personal Details</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-white">Trainer Biography & Qualifications</h3>
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-              General check-in information
+              Public display profile
             </p>
           </div>
 
@@ -182,31 +204,62 @@ export default function MemberProfile() {
                   className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Address</Label>
-                <Input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Emergency Name</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Specialization</Label>
                   <Input
-                    value={emergencyName}
-                    onChange={(e) => setEmergencyName(e.target.value)}
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
                     className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Emergency Phone</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Experience (Years)</Label>
                   <Input
-                    value={emergencyPhone}
-                    onChange={(e) => setEmergencyPhone(e.target.value)}
+                    type="number"
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(e.target.value)}
                     className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Certifications</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCert}
+                    onChange={(e) => setNewCert(e.target.value)}
+                    placeholder="e.g. CrossFit Level 1"
+                    className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddCert}
+                    className="h-10 px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold"
+                  >
+                    Add
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {certifications.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/20 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                      {c}
+                      <button type="button" onClick={() => handleRemoveCert(i)}>
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Biography</Label>
+                <Textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="min-h-20 border-white/5 bg-[#171717] rounded-xl text-white"
+                />
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -230,39 +283,46 @@ export default function MemberProfile() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Gender</span>
-                  <span className="text-xs font-bold text-white capitalize">{profile.gender || "Not specified"}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Date of Birth</span>
-                  <span className="text-xs font-bold text-white">{profile.date_of_birth || "Not specified"}</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Phone Number</span>
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Coaching Speciality</span>
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Phone size={12} className="text-[#FF6B00]" />
-                    {profile.phone || "No number"}
+                    <Award size={12} className="text-[#FF6B00]" />
+                    {trainer.specialization || "General"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Address</span>
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Experience</span>
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <MapPin size={12} className="text-[#FF6B00]" />
-                    {profile.address || "No address"}
+                    <Briefcase size={12} className="text-[#FF6B00]" />
+                    {trainer.experience_years ? `${trainer.experience_years} Years` : "N/A"}
                   </span>
                 </div>
               </div>
-              <div className="pt-2 border-t border-white/5 grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Emergency Contact</span>
-                  <span className="text-xs font-bold text-white">{profile.emergency_contact_name || "N/A"}</span>
+              <div className="pt-2 border-t border-white/5">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Phone Number</span>
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Phone size={12} className="text-[#FF6B00]" />
+                  {trainer.profile?.phone || "No phone"}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-white/5">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Certifications</span>
+                <div className="flex flex-wrap gap-1.5 pt-1.5">
+                  {certifications.length === 0 ? (
+                    <span className="text-xs text-slate-500 italic">No certifications listed</span>
+                  ) : (
+                    certifications.map((c, i) => (
+                      <span key={i} className="bg-white/5 border border-white/5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold text-slate-300">
+                        {c}
+                      </span>
+                    ))
+                  )}
                 </div>
-                <div>
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Emergency Phone</span>
-                  <span className="text-xs font-bold text-white">{profile.emergency_contact_phone || "N/A"}</span>
-                </div>
+              </div>
+              <div className="pt-2 border-t border-white/5">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Biography</span>
+                <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap pt-1">
+                  {trainer.bio || "No biography added yet."}
+                </p>
               </div>
             </div>
           )}
@@ -273,7 +333,7 @@ export default function MemberProfile() {
           <div className="border-b border-white/5 pb-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-white">Change Account Password</h3>
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-              Secure your access PIN/credentials
+              Secure your access credentials
             </p>
           </div>
 

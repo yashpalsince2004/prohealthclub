@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Banknote,
   ShieldCheck,
+  FileSpreadsheet,
   LucideIcon
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "revenue",      label: "Revenue",        href: "/admin/revenue",       icon: TrendingUp,      roles: ["admin"] },
   { id: "analytics",    label: "Analytics",      href: "/admin/analytics",     icon: BarChart2,       roles: ["admin"] },
   { id: "leads",        label: "Leads",          href: "/admin/leads",         icon: UserPlus,        roles: ["admin"] },
+  { id: "reports",      label: "Reports",        href: "/admin/reports",       icon: FileSpreadsheet, roles: ["admin"] },
   { id: "settings",     label: "Settings",       href: "/admin/settings",      icon: Settings,        roles: ["admin"] },
 
   // Receptionist only

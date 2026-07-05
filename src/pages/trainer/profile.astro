@@ -1,13 +1,13 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import MemberProfile from "../../components/dashboard/member/MemberProfile";
+import TrainerProfilePage from "../../components/dashboard/trainer/TrainerProfilePage";
 import { DashboardErrorBoundary } from "../../components/dashboard/DashboardErrorBoundary";
 import Sidebar from "../../components/dashboard/Sidebar";
 import Navbar from "../../components/dashboard/Navbar";
 import { Toaster } from "sonner";
 ---
 
-<Layout title="My Profile - Prro Health Club" description="Manage your contact details and account passwords.">
+<Layout title="Trainer Profile - Prro Health Club" description="Manage certifications, specialization bio, and account passwords.">
   <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
     <Sidebar client:only="react" isCollapsed={false} onToggleCollapse={() => {}} />
 
@@ -16,7 +16,7 @@ import { Toaster } from "sonner";
 
       <main className="flex-1 min-h-0">
         <DashboardErrorBoundary client:only="react" moduleName="Trainer Profile">
-          <MemberProfile client:only="react" />
+          <TrainerProfilePage client:only="react" />
         </DashboardErrorBoundary>
       </main>
     </div>

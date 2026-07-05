@@ -1,621 +1,643 @@
-import { useState, useEffect } from "react";
-import { Dumbbell, Apple, Plus, Trash2, Save, Sparkles, AlertCircle, ArrowLeft, Search } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { 
+  Dumbbell, Plus, Trash2, Save, Search, X, Calendar, 
+  ChevronRight, Sparkles, Check, Info, Loader2 
+} from "lucide-react";
 import { api } from "../../../lib/api";
-import type { MemberResponse, MemberListResponse } from "../../../lib/types";
+import { useAuth } from "../../../hooks/useAuth";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Label } from "../../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { Textarea } from "../../ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../ui/dialog";
 import { toast } from "sonner";
 
-interface WorkoutPlanBuilderProps {
-  initialMemberId?: string;
-  initialMemberName?: string;
-  initialType?: "workout" | "diet";
-  onCancel: () => void;
-}
+const DAYS_OF_WEEK = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 7, label: "Sun" },
+];
 
-export default function WorkoutPlanBuilder({
-  initialMemberId,
-  initialMemberName,
-  initialType = "workout",
-  onCancel,
-}: WorkoutPlanBuilderProps) {
-  const [planType, setPlanType] = useState<"workout" | "diet">(initialType);
-  const [memberId, setMemberId] = useState(initialMemberId || "");
-  const [memberName, setMemberName] = useState(initialMemberName || "");
+export default function WorkoutPlanBuilder() {
+  const { user } = useAuth();
+  const [assignedMembers, setAssignedMembers] = useState<any[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  const [existingPlans, setExistingPlans] = useState<any[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
-  // Member search states (if no initial member)
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<MemberResponse[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  // Common Meta
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  // Editor states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planTitle, setPlanTitle] = useState("");
+  const [planDescription, setPlanDescription] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
+  const [activeDay, setActiveDay] = useState<number>(1);
+  const [exercisesByDay, setExercisesByDay] = useState<Record<number, any[]>>({
+    1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+  });
   const [submitting, setSubmitting] = useState(false);
 
-  // Workout specific
-  const [exercises, setExercises] = useState<any[]>([
-    { day_of_week: 1, exercise_name: "", sets: 3, reps: 10, duration_minutes: 0, rest_seconds: 60, notes: "", order_index: 0 },
-  ]);
+  // Exercise Picker Modal states
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [exerciseQuery, setExerciseQuery] = useState("");
+  const [muscleFilter, setMuscleFilter] = useState<string>("");
+  const [exerciseLibrary, setExerciseLibrary] = useState<any[]>([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
 
-  // Diet specific
-  const [dailyCalories, setDailyCalories] = useState("");
-  const [proteinGrams, setProteinGrams] = useState("");
-  const [carbsGrams, setCarbsGrams] = useState("");
-  const [fatGrams, setFatGrams] = useState("");
-  const [dietItems, setDietItems] = useState<any[]>([
-    { meal_type: "breakfast", food_name: "", quantity: "1", unit: "servings", calories: 300, notes: "", order_index: 0 },
-  ]);
+  // Pre-fill fields for selected exercise to add
+  const [selectedLibraryExercise, setSelectedLibraryExercise] = useState<any>(null);
+  const [exerciseSets, setExerciseSets] = useState("3");
+  const [exerciseReps, setExerciseReps] = useState("10");
+  const [exerciseRest, setExerciseRest] = useState("60");
+  const [exerciseNotes, setExerciseNotes] = useState("");
 
-  const handleSearchMembers = async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
+  // Load assigned members
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!user?.trainer_id) return;
+      setLoadingMembers(true);
+      try {
+        const res = await api.get<any>(`/api/v1/trainers/${user.trainer_id}`);
+        setAssignedMembers(res.assigned_members || []);
+        if (res.assigned_members && res.assigned_members.length > 0) {
+          setSelectedMemberId(res.assigned_members[0].id);
+        }
+      } catch (err) {
+        toast.error("Failed to load coaching roster");
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+    fetchMembers();
+  }, [user?.trainer_id]);
+
+  // Load existing plans for selected member
+  const fetchPlans = async () => {
+    if (!selectedMemberId || !user?.trainer_id) return;
+    setLoadingPlans(true);
     try {
-      const res = await api.get<MemberListResponse>(`/api/v1/members/?page=1&per_page=10&search=${encodeURIComponent(searchQuery)}`);
-      setSearchResults(res.members);
+      const res = await api.get<any>(
+        `/api/v1/workout-plans/?member_id=${selectedMemberId}&trainer_id=${user.trainer_id}`
+      );
+      setExistingPlans(res || []);
     } catch (err) {
-      toast.error("Failed to query member directory");
+      toast.error("Failed to load workout plans");
     } finally {
-      setSearching(false);
+      setLoadingPlans(false);
     }
   };
 
-  const handleAddExercise = () => {
-    setExercises((prev) => [
+  useEffect(() => {
+    fetchPlans();
+    setIsEditing(false);
+    setEditingPlanId(null);
+  }, [selectedMemberId]);
+
+  // Load exercise library
+  const fetchLibrary = async () => {
+    setLoadingLibrary(true);
+    try {
+      let url = "/api/v1/exercise-library/?page=1&per_page=100";
+      if (exerciseQuery) url += `&search=${encodeURIComponent(exerciseQuery)}`;
+      if (muscleFilter) url += `&muscle_group=${muscleFilter}`;
+      const res = await api.get<any>(url);
+      setExerciseLibrary(res.exercises || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isPickerOpen) {
+      fetchLibrary();
+    }
+  }, [isPickerOpen, exerciseQuery, muscleFilter]);
+
+  const handleStartNewPlan = () => {
+    setEditingPlanId(null);
+    setPlanTitle("");
+    setPlanDescription("");
+    setStartDate(new Date().toISOString().split("T")[0]);
+    setEndDate("");
+    setExercisesByDay({
+      1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+    });
+    setActiveDay(1);
+    setIsEditing(true);
+  };
+
+  const handleEditPlan = (plan: any) => {
+    setEditingPlanId(plan.id);
+    setPlanTitle(plan.title);
+    setPlanDescription(plan.description || "");
+    setStartDate(plan.start_date || new Date().toISOString().split("T")[0]);
+    setEndDate(plan.end_date || "");
+    
+    // Group exercises by day
+    const grouped: Record<number, any[]> = {
+      1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+    };
+    if (plan.exercises) {
+      plan.exercises.forEach((ex: any) => {
+        if (grouped[ex.day_of_week]) {
+          grouped[ex.day_of_week].push({
+            name: ex.exercise_name,
+            sets: ex.sets || 3,
+            reps: ex.reps || 10,
+            rest_seconds: ex.rest_seconds || 60,
+            notes: ex.notes || "",
+          });
+        }
+      });
+    }
+    setExercisesByDay(grouped);
+    setActiveDay(1);
+    setIsEditing(true);
+  };
+
+  const handleAddExerciseClick = () => {
+    setSelectedLibraryExercise(null);
+    setExerciseSets("3");
+    setExerciseReps("10");
+    setExerciseRest("60");
+    setExerciseNotes("");
+    setIsPickerOpen(true);
+  };
+
+  const handleSelectExerciseFromLib = (ex: any) => {
+    setSelectedLibraryExercise(ex);
+    setExerciseSets(String(ex.default_sets || 3));
+    setExerciseReps(String(ex.default_reps || 10));
+    setExerciseRest(String(ex.default_rest_seconds || 60));
+    setExerciseNotes(ex.description || "");
+  };
+
+  const handleConfirmAddExercise = () => {
+    if (!selectedLibraryExercise) return;
+    
+    const newEx = {
+      name: selectedLibraryExercise.name,
+      sets: parseInt(exerciseSets) || 3,
+      reps: parseInt(exerciseReps) || 10,
+      rest_seconds: parseInt(exerciseRest) || 60,
+      notes: exerciseNotes,
+    };
+
+    setExercisesByDay(prev => ({
       ...prev,
-      { day_of_week: 1, exercise_name: "", sets: 3, reps: 10, duration_minutes: 0, rest_seconds: 60, notes: "", order_index: prev.length },
-    ]);
+      [activeDay]: [...prev[activeDay], newEx]
+    }));
+
+    setIsPickerOpen(false);
+    toast.success(`${selectedLibraryExercise.name} added to day.`);
   };
 
   const handleRemoveExercise = (idx: number) => {
-    setExercises((prev) => prev.filter((_, i) => i !== idx));
+    setExercisesByDay(prev => {
+      const copy = [...prev[activeDay]];
+      copy.splice(idx, 1);
+      return { ...prev, [activeDay]: copy };
+    });
   };
 
-  const handleExerciseChange = (idx: number, field: string, val: any) => {
-    setExercises((prev) =>
-      prev.map((ex, i) => (i === idx ? { ...ex, [field]: val } : ex))
-    );
-  };
-
-  const handleAddDietItem = () => {
-    setDietItems((prev) => [
-      ...prev,
-      { meal_type: "breakfast", food_name: "", quantity: "1", unit: "servings", calories: 300, notes: "", order_index: prev.length },
-    ]);
-  };
-
-  const handleRemoveDietItem = (idx: number) => {
-    setDietItems((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleDietItemChange = (idx: number, field: string, val: any) => {
-    setDietItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, [field]: val } : item))
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!memberId) {
-      toast.error("Please select a target member first");
+  const handleSavePlan = async () => {
+    if (!planTitle.trim()) {
+      toast.error("Please enter a plan title.");
       return;
     }
-    if (!title) {
-      toast.error("Please provide a plan title");
+    if (!selectedMemberId) {
+      toast.error("Please select a member first.");
       return;
     }
 
     setSubmitting(true);
     try {
-      if (planType === "workout") {
-        // Validate exercises
-        const invalid = exercises.some((ex) => !ex.exercise_name);
-        if (invalid) {
-          toast.error("All added exercises must have a name");
-          setSubmitting(false);
-          return;
-        }
+      // Flatten exercises
+      const flattenedExercises: any[] = [];
+      Object.entries(exercisesByDay).forEach(([day, exList]) => {
+        const dayNum = parseInt(day);
+        exList.forEach((ex, idx) => {
+          flattenedExercises.push({
+            day_of_week: dayNum,
+            exercise_name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            rest_seconds: ex.rest_seconds,
+            notes: ex.notes,
+            order_index: idx
+          });
+        });
+      });
 
-        const payload = {
-          member_id: memberId,
-          title,
-          description: description || null,
-          start_date: startDate,
-          end_date: endDate || null,
-          exercises: exercises.map((ex) => ({
-            ...ex,
-            sets: parseInt(ex.sets) || null,
-            reps: parseInt(ex.reps) || null,
-            duration_minutes: parseInt(ex.duration_minutes) || null,
-            rest_seconds: parseInt(ex.rest_seconds) || null,
-            notes: ex.notes || null,
-          })),
-        };
+      const payload = {
+        member_id: selectedMemberId,
+        title: planTitle,
+        description: planDescription,
+        start_date: startDate,
+        end_date: endDate || null,
+        exercises: flattenedExercises,
+      };
 
-        await api.post("/api/v1/workout-plans/", payload);
-        toast.success(`Workout split successfully assigned to ${memberName}`);
+      if (editingPlanId) {
+        await api.patch(`/api/v1/workout-plans/${editingPlanId}`, payload);
+        toast.success("Workout plan updated successfully!");
       } else {
-        // Validate diet items
-        const invalid = dietItems.some((item) => !item.food_name);
-        if (invalid) {
-          toast.error("All added meal items must have a food name");
-          setSubmitting(false);
-          return;
-        }
-
-        const payload = {
-          member_id: memberId,
-          title,
-          description: description || null,
-          daily_calories: parseInt(dailyCalories) || null,
-          protein_grams: parseInt(proteinGrams) || null,
-          carbs_grams: parseInt(carbsGrams) || null,
-          fat_grams: parseInt(fatGrams) || null,
-          start_date: startDate,
-          end_date: endDate || null,
-          items: dietItems.map((item) => ({
-            ...item,
-            calories: parseInt(item.calories) || null,
-            notes: item.notes || null,
-          })),
-        };
-
-        await api.post("/api/v1/diet-plans/", payload);
-        toast.success(`Nutrition regimen successfully assigned to ${memberName}`);
+        await api.post("/api/v1/workout-plans/", payload);
+        toast.success("Workout plan created successfully!");
       }
 
-      onCancel();
+      setIsEditing(false);
+      setEditingPlanId(null);
+      fetchPlans();
     } catch (err: any) {
-      toast.error(err.message || "Failed to prescribe program");
+      toast.error(err.message || "Failed to save workout plan");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-[#171717] border border-white/5 p-6 rounded-2xl shadow-lg space-y-6 text-white max-w-4xl mx-auto">
-      {/* Header Controls */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-white">Program Designer</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-              Prescribe customized workouts and macros to member profiles
-            </p>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
+      {/* LEFT PANEL: Member Selection & Existing Plans List */}
+      <div className="lg:col-span-4 space-y-6">
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Select Member</span>
+            {loadingMembers ? (
+              <div className="h-10 bg-white/5 animate-pulse rounded-xl w-full"></div>
+            ) : assignedMembers.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">No assigned members found</p>
+            ) : (
+              <select
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="w-full h-11 bg-black border border-white/5 rounded-xl text-white text-xs px-3 focus:outline-none focus:border-[#FF6B00]"
+              >
+                {assignedMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.profile?.full_name || "Unknown Member"}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
-        {/* Toggle Plan Type */}
-        {!initialMemberId && (
-          <div className="flex bg-[#111111] p-1 rounded-xl border border-white/5">
-            <button
-              onClick={() => setPlanType("workout")}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                planType === "workout" ? "bg-[#FF7A00] text-white" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Dumbbell size={12} />
-              <span>Workout Plan</span>
-            </button>
-            <button
-              onClick={() => setPlanType("diet")}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                planType === "diet" ? "bg-green-500 text-white" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Apple size={12} />
-              <span>Diet Plan</span>
-            </button>
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <span className="text-xs font-black uppercase tracking-wider text-white">Workout Programs</span>
+            {!isEditing && (
+              <Button
+                onClick={handleStartNewPlan}
+                className="h-8 rounded-lg bg-[#FF6B00] hover:bg-[#FF8020] text-white text-[10px] font-black uppercase tracking-wider px-2.5"
+              >
+                New Plan
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+            {loadingPlans ? (
+              <div className="space-y-2">
+                <div className="h-14 bg-white/5 animate-pulse rounded-xl"></div>
+                <div className="h-14 bg-white/5 animate-pulse rounded-xl"></div>
+              </div>
+            ) : existingPlans.length === 0 ? (
+              <p className="text-xs text-slate-500 italic text-center py-4">No workout plans assigned</p>
+            ) : (
+              existingPlans.map((plan) => (
+                <div
+                  key={plan.id}
+                  onClick={() => handleEditPlan(plan)}
+                  className={`p-3.5 border rounded-2xl cursor-pointer transition-colors text-left space-y-1.5 ${
+                    editingPlanId === plan.id 
+                      ? "bg-[#FF6B00]/10 border-[#FF6B00]/40" 
+                      : "bg-[#171717]/60 border-white/5 hover:bg-[#171717]"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-bold text-white block">{plan.title}</span>
+                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                      plan.is_active ? "bg-green-500/10 text-green-500" : "bg-white/5 text-slate-500"
+                    }`}>
+                      {plan.is_active ? "Active" : "Archived"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-bold block">
+                    Duration: {plan.start_date} to {plan.end_date || "Continuous"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT PANEL: Workout Editor */}
+      <div className="lg:col-span-8">
+        {isEditing ? (
+          <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl space-y-6 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                  {editingPlanId ? "Edit Workout Program" : "Prescribe New Workout"}
+                </h3>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                  Configure training routines, targets, and sets
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditing(false)}
+                  className="h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] uppercase tracking-wider px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSavePlan}
+                  disabled={submitting}
+                  className="h-9 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-[10px] uppercase tracking-wider px-3 flex items-center gap-1.5"
+                >
+                  {submitting ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save Program
+                </Button>
+              </div>
+            </div>
+
+            {/* Plan Meta Inputs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Program Title *</Label>
+                <Input
+                  value={planTitle}
+                  onChange={(e) => setPlanTitle(e.target.value)}
+                  placeholder="e.g. 5-Day Hypertrophy Split"
+                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Program Description</Label>
+              <Textarea
+                value={planDescription}
+                onChange={(e) => setPlanDescription(e.target.value)}
+                placeholder="Details of splits, progressive overload scheme, or instructions..."
+                className="min-h-16 border-white/5 bg-black/40 rounded-xl text-white"
+              />
+            </div>
+
+            {/* Day of Week Tabs */}
+            <div className="space-y-4 pt-2 border-t border-white/5">
+              <div className="flex bg-black/40 border border-white/5 p-1 rounded-2xl overflow-x-auto scrollbar-none">
+                {DAYS_OF_WEEK.map((d) => (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => setActiveDay(d.value)}
+                    className={`flex-1 min-w-[50px] py-2 rounded-xl text-xs font-bold transition-all ${
+                      activeDay === d.value 
+                        ? "bg-[#FF6B00] text-white" 
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Exercises List for Active Day */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Day Schedule Exercises ({exercisesByDay[activeDay]?.length || 0})
+                  </span>
+                  <Button
+                    onClick={handleAddExerciseClick}
+                    className="h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase tracking-wider px-2.5 flex items-center gap-1"
+                  >
+                    <Plus size={12} />
+                    Add Exercise
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                  {(!exercisesByDay[activeDay] || exercisesByDay[activeDay].length === 0) ? (
+                    <div className="p-8 border border-dashed border-white/5 rounded-2xl text-center text-slate-500 text-xs italic">
+                      Rest Day / No exercises scheduled
+                    </div>
+                  ) : (
+                    exercisesByDay[activeDay].map((ex, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 bg-black/30 border border-white/5 rounded-2xl flex items-center justify-between gap-4"
+                      >
+                        <div className="flex-1 space-y-1">
+                          <span className="text-xs font-bold text-white block">{ex.name}</span>
+                          <div className="flex flex-wrap gap-2 text-[10px] text-slate-400 font-bold uppercase">
+                            <span className="bg-white/5 px-2 py-0.5 rounded-md">{ex.sets} Sets</span>
+                            <span className="bg-white/5 px-2 py-0.5 rounded-md">{ex.reps} Reps</span>
+                            <span className="bg-white/5 px-2 py-0.5 rounded-md">{ex.rest_seconds}s Rest</span>
+                          </div>
+                          {ex.notes && (
+                            <p className="text-[10px] text-slate-500 font-medium italic pt-1">{ex.notes}</p>
+                          )}
+                        </div>
+                        <Button
+                          onClick={() => handleRemoveExercise(idx)}
+                          className="w-8 h-8 rounded-lg bg-red-500/10 p-0 hover:bg-red-500/20 text-red-500"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#121212] border border-dashed border-white/5 p-12 rounded-3xl text-center space-y-4">
+            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-slate-500 mx-auto">
+              <Dumbbell size={24} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-black uppercase tracking-wider text-white">No Program Selected</h4>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                Select an existing workout split on the left or create a new routine
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step 1: Member Selection & Basic Metadata */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Member Row */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Target Member</Label>
-            {memberName ? (
-              <div className="h-10 px-3 rounded-xl bg-[#1D1D1D] border border-white/5 flex items-center justify-between text-white text-xs font-bold">
-                <span>{memberName}</span>
-                {!initialMemberId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMemberId("");
-                      setMemberName("");
-                    }}
-                    className="text-primary hover:underline text-[10px]"
-                  >
-                    Change
-                  </button>
+      {/* EXERCISE PICKER DIALOG */}
+      <Dialog open={isPickerOpen} onOpenChange={() => setIsPickerOpen(false)}>
+        <DialogContent className="max-w-md bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-wider text-[#FF6B00]">
+              Add Exercise to Split
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Search standard exercise library configurations.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Search Input */}
+            <div className="flex gap-2">
+              <Input
+                value={exerciseQuery}
+                onChange={(e) => setExerciseQuery(e.target.value)}
+                placeholder="Search Bench Press, Squats..."
+                className="h-10 border-white/5 bg-[#171717] rounded-xl text-white"
+              />
+              <select
+                value={muscleFilter}
+                onChange={(e) => setMuscleFilter(e.target.value)}
+                className="h-10 bg-[#171717] border border-white/5 rounded-xl text-white text-xs px-2 focus:outline-none"
+              >
+                <option value="">All Muscles</option>
+                <option value="chest">Chest</option>
+                <option value="back">Back</option>
+                <option value="shoulders">Shoulders</option>
+                <option value="biceps">Biceps</option>
+                <option value="triceps">Triceps</option>
+                <option value="legs">Legs</option>
+                <option value="glutes">Glutes</option>
+                <option value="core">Core</option>
+                <option value="cardio">Cardio</option>
+                <option value="full_body">Full Body</option>
+              </select>
+            </div>
+
+            {/* Results selection list */}
+            {!selectedLibraryExercise ? (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto border border-white/5 rounded-2xl bg-black/20 p-2">
+                {loadingLibrary ? (
+                  <p className="text-xs text-slate-500 italic text-center py-4">Querying database...</p>
+                ) : exerciseLibrary.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic text-center py-4">No exercises found</p>
+                ) : (
+                  exerciseLibrary.map((ex) => (
+                    <div
+                      key={ex.id}
+                      onClick={() => handleSelectExerciseFromLib(ex)}
+                      className="p-2 bg-[#171717] hover:bg-[#1f1f1f] rounded-xl cursor-pointer flex items-center justify-between text-xs transition-colors"
+                    >
+                      <span className="font-bold text-white">{ex.name}</span>
+                      <span className="text-[8px] bg-[#FF6B00]/10 text-[#FF6B00] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                        {ex.muscle_group}
+                      </span>
+                    </div>
+                  ))
                 )}
               </div>
             ) : (
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              // Selected Exercise parameters overrides
+              <div className="space-y-4 bg-black/40 border border-white/5 p-4 rounded-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-xs font-bold text-white block">{selectedLibraryExercise.name}</span>
+                    <span className="text-[9px] text-slate-500 font-bold uppercase">Target: {selectedLibraryExercise.muscle_group}</span>
+                  </div>
+                  <Button
+                    onClick={() => setSelectedLibraryExercise(null)}
+                    className="h-6 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white px-2 text-[9px]"
+                  >
+                    Change
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Sets</label>
+                    <Input
+                      type="number"
+                      value={exerciseSets}
+                      onChange={(e) => setExerciseSets(e.target.value)}
+                      className="h-9 border-white/5 bg-[#171717] rounded-xl text-white text-center"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Reps</label>
+                    <Input
+                      type="number"
+                      value={exerciseReps}
+                      onChange={(e) => setExerciseReps(e.target.value)}
+                      className="h-9 border-white/5 bg-[#171717] rounded-xl text-white text-center"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Rest (s)</label>
+                    <Input
+                      type="number"
+                      value={exerciseRest}
+                      onChange={(e) => setExerciseRest(e.target.value)}
+                      className="h-9 border-white/5 bg-[#171717] rounded-xl text-white text-center"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase">Instructions / Notes</label>
                   <Input
-                    placeholder="Search member name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 border-white/5 bg-[#1D1D1D] rounded-xl text-white placeholder:text-slate-600"
+                    value={exerciseNotes}
+                    onChange={(e) => setExerciseNotes(e.target.value)}
+                    placeholder="Tempo, equipment parameters, weight guidelines..."
+                    className="h-9 border-white/5 bg-[#171717] rounded-xl text-white"
                   />
                 </div>
-                <Button type="button" onClick={handleSearchMembers} className="bg-white/5 text-slate-300 hover:text-white rounded-xl">
-                  Search
-                </Button>
-              </div>
-            )}
-
-            {/* Member search dropdown */}
-            {!memberName && searchResults.length > 0 && (
-              <div className="bg-[#1D1D1D] border border-white/5 rounded-xl p-2 space-y-1 max-h-40 overflow-y-auto">
-                {searchResults.map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => {
-                      setMemberId(m.id);
-                      setMemberName(m.profile.full_name);
-                      setSearchResults([]);
-                      setSearchQuery("");
-                    }}
-                    className="p-2 hover:bg-white/5 rounded-lg cursor-pointer text-xs font-semibold"
-                  >
-                    {m.profile.full_name} ({m.profile.email})
-                  </div>
-                ))}
               </div>
             )}
           </div>
 
-          {/* Plan Title */}
-          <div className="space-y-1.5">
-            <Label htmlFor="planTitle" className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Plan Title
-            </Label>
-            <Input
-              id="planTitle"
-              placeholder={planType === "workout" ? "Hypertrophy Push Split" : "Lean Bulk Nutrition"}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="h-10 border-white/5 bg-[#1D1D1D] rounded-xl text-white placeholder:text-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-              required
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="planDesc" className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Description
-            </Label>
-            <Input
-              id="planDesc"
-              placeholder="Focus area, guidelines, and training targets"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="h-10 border-white/5 bg-[#1D1D1D] rounded-xl text-white placeholder:text-slate-600 focus-visible:ring-primary"
-            />
-          </div>
-
-          {/* Start Date */}
-          <div className="space-y-1.5">
-            <Label htmlFor="startDate" className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Start Date
-            </Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-10 border-white/5 bg-[#1D1D1D] rounded-xl text-white"
-              required
-            />
-          </div>
-
-          {/* End Date */}
-          <div className="space-y-1.5">
-            <Label htmlFor="endDate" className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              End Date (Optional)
-            </Label>
-            <Input
-              id="endDate"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-10 border-white/5 bg-[#1D1D1D] rounded-xl text-white"
-            />
-          </div>
-        </div>
-
-        {/* Step 2: Custom Parameters (Macro metrics for Diet) */}
-        {planType === "diet" && (
-          <div className="border border-white/5 p-4 rounded-xl bg-white/5 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Daily Calories (kcal)</Label>
-              <Input
-                type="number"
-                placeholder="2400"
-                value={dailyCalories}
-                onChange={(e) => setDailyCalories(e.target.value)}
-                className="h-9 border-white/5 bg-[#171717] rounded-lg text-white"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Protein (g)</Label>
-              <Input
-                type="number"
-                placeholder="150"
-                value={proteinGrams}
-                onChange={(e) => setProteinGrams(e.target.value)}
-                className="h-9 border-white/5 bg-[#171717] rounded-lg text-white"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Carbs (g)</Label>
-              <Input
-                type="number"
-                placeholder="250"
-                value={carbsGrams}
-                onChange={(e) => setCarbsGrams(e.target.value)}
-                className="h-9 border-white/5 bg-[#171717] rounded-lg text-white"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fat (g)</Label>
-              <Input
-                type="number"
-                placeholder="70"
-                value={fatGrams}
-                onChange={(e) => setFatGrams(e.target.value)}
-                className="h-9 border-white/5 bg-[#171717] rounded-lg text-white"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Dynamic Item Rows */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-t border-white/5 pt-4">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-              {planType === "workout" ? "Exercise Prescription" : "Nutrition Meals"}
-            </span>
+          <DialogFooter className="gap-2">
             <Button
               type="button"
-              onClick={planType === "workout" ? handleAddExercise : handleAddDietItem}
-              size="sm"
-              className="bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-bold rounded-lg flex items-center gap-1"
+              onClick={() => setIsPickerOpen(false)}
+              className="bg-white/5 hover:bg-white/10 text-white font-bold h-10 rounded-xl"
             >
-              <Plus size={14} />
-              <span>{planType === "workout" ? "Add Exercise" : "Add Meal Item"}</span>
+              Cancel
             </Button>
-          </div>
-
-          <div className="space-y-3">
-            {planType === "workout"
-              ? exercises.map((ex, idx) => (
-                  <div key={idx} className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-wrap gap-3 items-end">
-                    {/* Day of Week */}
-                    <div className="w-32 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Day</Label>
-                      <Select
-                        value={ex.day_of_week.toString()}
-                        onValueChange={(val) => handleExerciseChange(idx, "day_of_week", parseInt(val))}
-                      >
-                        <SelectTrigger className="h-9 bg-[#171717] border-white/5 rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1D1D1D] text-white border-white/5 rounded-lg">
-                          <SelectItem value="1">Monday</SelectItem>
-                          <SelectItem value="2">Tuesday</SelectItem>
-                          <SelectItem value="3">Wednesday</SelectItem>
-                          <SelectItem value="4">Thursday</SelectItem>
-                          <SelectItem value="5">Friday</SelectItem>
-                          <SelectItem value="6">Saturday</SelectItem>
-                          <SelectItem value="7">Sunday</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Exercise Name */}
-                    <div className="flex-1 min-w-[150px] space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Exercise Name</Label>
-                      <Input
-                        placeholder="Incline Bench Press"
-                        value={ex.exercise_name}
-                        onChange={(e) => handleExerciseChange(idx, "exercise_name", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                        required
-                      />
-                    </div>
-
-                    {/* Sets */}
-                    <div className="w-16 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Sets</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={ex.sets}
-                        onChange={(e) => handleExerciseChange(idx, "sets", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Reps */}
-                    <div className="w-16 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Reps</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={ex.reps}
-                        onChange={(e) => handleExerciseChange(idx, "reps", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Rest */}
-                    <div className="w-20 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Rest (s)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={ex.rest_seconds}
-                        onChange={(e) => handleExerciseChange(idx, "rest_seconds", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex-1 min-w-[150px] space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Coaching Notes</Label>
-                      <Input
-                        placeholder="Tempos, focus squeezes, etc."
-                        value={ex.notes}
-                        onChange={(e) => handleExerciseChange(idx, "notes", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Remove */}
-                    {exercises.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => handleRemoveExercise(idx)}
-                        className="h-9 w-9 p-0 text-red-500 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-lg flex items-center justify-center"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    )}
-                  </div>
-                ))
-              : dietItems.map((item, idx) => (
-                  <div key={idx} className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-wrap gap-3 items-end">
-                    {/* Meal Type */}
-                    <div className="w-32 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Meal Session</Label>
-                      <Select
-                        value={item.meal_type}
-                        onValueChange={(val) => handleDietItemChange(idx, "meal_type", val)}
-                      >
-                        <SelectTrigger className="h-9 bg-[#171717] border-white/5 rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1D1D1D] text-white border-white/5 rounded-lg">
-                          <SelectItem value="breakfast">Breakfast</SelectItem>
-                          <SelectItem value="lunch">Lunch</SelectItem>
-                          <SelectItem value="dinner">Dinner</SelectItem>
-                          <SelectItem value="snack">Snack</SelectItem>
-                          <SelectItem value="pre_workout">Pre-Workout</SelectItem>
-                          <SelectItem value="post_workout">Post-Workout</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Food Name */}
-                    <div className="flex-1 min-w-[150px] space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Food / Drink Item</Label>
-                      <Input
-                        placeholder="Boiled eggs or Whey Protein"
-                        value={item.food_name}
-                        onChange={(e) => handleDietItemChange(idx, "food_name", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                        required
-                      />
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="w-20 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Qty</Label>
-                      <Input
-                        placeholder="100"
-                        value={item.quantity}
-                        onChange={(e) => handleDietItemChange(idx, "quantity", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Unit */}
-                    <div className="w-20 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Unit</Label>
-                      <Input
-                        placeholder="grams"
-                        value={item.unit}
-                        onChange={(e) => handleDietItemChange(idx, "unit", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Calories */}
-                    <div className="w-20 space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Calories (kcal)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.calories}
-                        onChange={(e) => handleDietItemChange(idx, "calories", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex-1 min-w-[150px] space-y-1.5">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Nutrient Notes</Label>
-                      <Input
-                        placeholder="Vitamins, low fat, water intake etc."
-                        value={item.notes}
-                        onChange={(e) => handleDietItemChange(idx, "notes", e.target.value)}
-                        className="h-9 bg-[#171717] border-white/5 rounded-lg text-white"
-                      />
-                    </div>
-
-                    {/* Remove */}
-                    {dietItems.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => handleRemoveDietItem(idx)}
-                        className="h-9 w-9 p-0 text-red-500 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-lg flex items-center justify-center"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    )}
-                  </div>
-                ))
-            }
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
-          <Button
-            type="button"
-            onClick={onCancel}
-            variant="ghost"
-            className="hover:bg-white/5 text-slate-400 hover:text-white rounded-xl"
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            className="bg-primary hover:bg-primary/95 text-white font-bold rounded-xl flex items-center gap-1.5"
-            disabled={submitting}
-          >
-            <Save size={16} />
-            <span>{submitting ? "Prescribing..." : "Prescribe Program"}</span>
-          </Button>
-        </div>
-      </form>
+            <Button
+              type="button"
+              onClick={handleConfirmAddExercise}
+              disabled={!selectedLibraryExercise}
+              className="bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold h-10 rounded-xl"
+            >
+              Add to Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -308,9 +308,18 @@ export default function TrainerManagement() {
                 <TableBody>
                   {trainers.map((t) => (
                     <TableRow key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                      <TableCell className="py-4">
-                        <div className="text-xs font-bold text-white">{t.profile?.full_name || "Unknown"}</div>
-                        <div className="text-[10px] text-slate-500">{t.profile?.phone || "No phone"}</div>
+                      <TableCell className="py-4 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-[#FF6B00]/10 flex items-center justify-center border border-[#FF6B00]/20 text-[#FF6B00] text-[10px] font-black flex-shrink-0">
+                          {t.profile?.avatar_url ? (
+                            <img src={t.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            t.profile?.full_name ? t.profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "TR"
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-white">{t.profile?.full_name || "Unknown"}</div>
+                          <div className="text-[10px] text-slate-500">{t.profile?.phone || "No phone"}</div>
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs font-medium text-slate-300">{t.specialization || "General"}</TableCell>
                       <TableCell className="text-xs font-medium text-slate-400">{t.experience_years ? `${t.experience_years} Years` : "N/A"}</TableCell>
