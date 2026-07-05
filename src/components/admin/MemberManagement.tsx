@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
-  Users, UserCheck, UserX, AlertTriangle, 
+  User, Users, UserCheck, UserX, AlertTriangle, 
   UserPlus, Upload, Download, MapPin, Phone, Mail, Award, Activity,
   Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye, Sliders
 } from "lucide-react";
