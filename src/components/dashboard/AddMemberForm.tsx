@@ -57,9 +57,7 @@ export default function AddMemberForm({
 
   // Step 3: Portal Credentials
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,16 +80,14 @@ export default function AddMemberForm({
   // ── Password helpers ─────────────────────────────────────────
   const handleGeneratePassword = () => {
     const chars =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     const pin = Math.floor(100 + Math.random() * 900);
     const rand = Array.from({ length: 5 }, () =>
       chars.charAt(Math.floor(Math.random() * chars.length))
     ).join("");
     const generated = `Prro${pin}${rand}`;
     setPassword(generated);
-    setConfirmPassword(generated);
     setShowPassword(true);
-    toast.success("Password generated — copy it before proceeding");
   };
 
   const handleCopyPassword = () => {
@@ -144,7 +140,7 @@ export default function AddMemberForm({
     e.preventDefault();
 
     if (!password) {
-      toast.error("Password is required.");
+      toast.error("Password is required. Use the Generate button.");
       return;
     }
     if (password.length < 8) {
@@ -152,7 +148,7 @@ export default function AddMemberForm({
       return;
     }
     if (!/[A-Z]/.test(password)) {
-      toast.error("Password must contain at least one uppercase letter (e.g. Prro@1234).");
+      toast.error("Password must contain at least one uppercase letter.");
       return;
     }
     if (!/[a-z]/.test(password)) {
@@ -161,10 +157,6 @@ export default function AddMemberForm({
     }
     if (!/[0-9]/.test(password)) {
       toast.error("Password must contain at least one number.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
       return;
     }
 
@@ -277,70 +269,105 @@ export default function AddMemberForm({
     setStartDate(new Date().toISOString().split("T")[0]);
     setMembershipNotes("");
     setPassword("");
-    setConfirmPassword("");
     setShowPassword(false);
-    setShowConfirm(false);
     if (onSuccess) onSuccess();
   };
 
   // ── Success card ─────────────────────────────────────────────
+  const handleCopyCredentials = () => {
+    if (!createdSummary) return;
+    const text = [
+      `Prro Health Club — Member Credentials`,
+      `──────────────────────────────`,
+      `Name     : ${createdSummary.fullName}`,
+      `Member ID: ${createdSummary.memberId}`,
+      `Email    : ${createdSummary.email}`,
+      `Password : ${createdSummary.password}`,
+      `Plan     : ${createdSummary.planName}`,
+      `Trainer  : ${createdSummary.trainerName}`,
+    ].join("\n");
+    navigator.clipboard.writeText(text);
+    toast.success("Credentials copied to clipboard");
+  };
+
   if (createdSummary) {
     return (
-      <div className="bg-[#171717] border border-white/5 p-6 rounded-2xl shadow-lg space-y-5 text-center max-w-md mx-auto animate-in fade-in duration-300">
-        <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
-          <CheckCircle size={28} className="text-emerald-400" />
-        </div>
-        <div>
-          <h3 className="text-sm font-black uppercase tracking-wider text-white">
-            Registration Complete
-          </h3>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
-            Member account and subscription created successfully
+      <div className="space-y-5 animate-in fade-in duration-300">
+        {/* Status header */}
+        <div className="flex flex-col items-center gap-2 py-4">
+          <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center">
+            <CheckCircle size={28} className="text-emerald-400" />
+          </div>
+          <h3 className="text-sm font-black text-white">Member Created Successfully</h3>
+          <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+            Account, membership &amp; trainer assigned
           </p>
         </div>
 
-        <div className="bg-black/40 border border-white/5 p-4 rounded-xl text-left space-y-3">
-          <SummaryRow label="Full Name" value={createdSummary.fullName} />
-          <SummaryRow label="Email" value={createdSummary.email} />
-          <SummaryRow label="Phone" value={createdSummary.phone || "—"} />
-          <div className="grid grid-cols-2 gap-3">
-            <SummaryRow label="Plan" value={createdSummary.planName} accent />
-            <SummaryRow label="Coach" value={createdSummary.trainerName} />
-          </div>
-          <div>
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">
-              Portal Password
+        {/* Credentials card */}
+        <div className="border border-white/8 rounded-2xl overflow-hidden">
+          {/* Member ID banner */}
+          <div className="bg-[#FF6B00]/8 border-b border-white/5 px-5 py-3 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Member ID</span>
+            <span className="text-[11px] font-mono font-black text-[#FF6B00]">
+              {createdSummary.memberId?.substring(0, 8).toUpperCase()}
             </span>
-            <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
-              <span className="text-xs font-mono font-bold text-white flex-1">
-                {createdSummary.password}
-              </span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(createdSummary.password);
-                  toast.success("Password copied");
-                }}
-                className="text-slate-500 hover:text-white transition-colors"
-              >
-                <Copy size={13} />
-              </button>
+          </div>
+
+          {/* Fields */}
+          <div className="divide-y divide-white/5">
+            <CredRow icon="👤" label="Name"     value={createdSummary.fullName} />
+            <CredRow icon="✉️" label="Email"    value={createdSummary.email} />
+            <CredRow icon="📞" label="Phone"    value={createdSummary.phone || "—"} />
+            <CredRow icon="🏅" label="Plan"     value={createdSummary.planName} accent />
+            <CredRow icon="🏋️" label="Trainer"  value={createdSummary.trainerName} />
+          </div>
+
+          {/* Password row — special treatment */}
+          <div className="px-5 py-3.5 bg-black/30 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Portal Password</p>
+              <p className="text-sm font-mono font-black text-white mt-0.5">{createdSummary.password}</p>
             </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(createdSummary.password);
+                toast.success("Password copied");
+              }}
+              className="h-8 px-3 flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[10px] font-bold transition-all border border-white/5"
+            >
+              <Copy size={12} /> Copy
+            </button>
           </div>
         </div>
 
-        <div className="flex gap-3">
+        {/* Actions */}
+        <div className="grid grid-cols-2 gap-3">
           <Button
-            onClick={handlePrint}
-            className="flex-1 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+            onClick={handleCopyCredentials}
+            className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/5"
           >
-            <Printer size={14} />
-            Print Card
+            <Copy size={13} /> Copy All
           </Button>
           <Button
-            onClick={handleReset}
-            className="flex-1 h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider"
+            onClick={handlePrint}
+            className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/5"
           >
-            New Registration
+            <Printer size={13} /> Print Card
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            onClick={handleReset}
+            className="h-10 rounded-xl border border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+          >
+            <UserPlus size={13} /> Add Another
+          </Button>
+          <Button
+            onClick={() => onSuccess?.()}
+            className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider"
+          >
+            Done
           </Button>
         </div>
       </div>
@@ -642,37 +669,6 @@ export default function AddMemberForm({
               )}
             </Field>
 
-            {/* Confirm field */}
-            <Field label="Confirm Password *">
-              <div className="relative">
-                <Input
-                  type={showConfirm ? "text" : "password"}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat password"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                >
-                  {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {confirmPassword && password !== confirmPassword && (
-                <p className="text-[10px] text-red-400 font-semibold mt-1">
-                  Passwords do not match
-                </p>
-              )}
-              {confirmPassword && password === confirmPassword && (
-                <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-1">
-                  <Check size={10} /> Passwords match
-                </p>
-              )}
-            </Field>
-
             {/* Password rules reminder */}
             <p className="text-[10px] text-slate-600 font-semibold">
               Requirements: min 8 characters · 1 uppercase · 1 lowercase · 1 number
@@ -705,7 +701,7 @@ export default function AddMemberForm({
           ) : (
             <Button
               type="submit"
-              disabled={submitting || password !== confirmPassword}
+              disabled={submitting}
               className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider px-4 flex items-center gap-2 disabled:opacity-50"
             >
               <Save size={14} />
@@ -753,6 +749,36 @@ function SummaryRow({
       </span>
       <span
         className={`text-xs font-bold ${accent ? "text-[#FF6B00]" : "text-white"}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function CredRow({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="px-5 py-3 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="text-base leading-none flex-shrink-0">{icon}</span>
+        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex-shrink-0">
+          {label}
+        </span>
+      </div>
+      <span
+        className={`text-xs font-bold truncate text-right ${
+          accent ? "text-[#FF6B00]" : "text-white"
+        }`}
       >
         {value}
       </span>
