@@ -1,0 +1,11 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import MemberManagement from "../../components/admin/MemberManagement";
+import { DashboardErrorBoundary } from "../../components/dashboard/DashboardErrorBoundary";
+---
+
+<Layout title="Member Management - Prro Health Club" description="Manage gym member profiles, membership statuses, assigned trainers, and details.">
+  <DashboardErrorBoundary client:only="react" moduleName="Members Registry">
+    <MemberManagement client:only="react" />
+  </DashboardErrorBoundary>
+</Layout>
