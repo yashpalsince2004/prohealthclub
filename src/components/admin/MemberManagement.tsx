@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Users, UserCheck, UserX, AlertTriangle, 
-  UserPlus, Upload, MapPin, Phone, Mail, Award, Activity,
+  UserPlus, Upload, Download, MapPin, Phone, Mail, Award, Activity,
   Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye, Sliders
 } from "lucide-react";
 import { memberService, Member } from "../../lib/memberService";
@@ -354,6 +354,45 @@ export default function MemberManagement() {
       options: trainers.map((t) => ({ label: t.profile.full_name, value: t.id }))
     },
     { name: "notes", label: "General Administrative Notes", type: "textarea" }
+  ], [plans, trainers]);
+
+  const filterConfigs = useMemo(() => [
+    {
+      key: "status",
+      label: "Status",
+      options: [
+        { label: "Active Subs", value: "active" },
+        { label: "Expired Subs", value: "expired" },
+        { label: "All Members", value: "all" }
+      ]
+    },
+    {
+      key: "gender",
+      label: "Gender",
+      options: [
+        { label: "Male", value: "male" },
+        { label: "Female", value: "female" },
+        { label: "Other", value: "other" }
+      ]
+    },
+    {
+      key: "plan_id",
+      label: "Plan",
+      options: plans.map((p) => ({ label: p.name, value: p.id }))
+    },
+    {
+      key: "trainer_id",
+      label: "Trainer",
+      options: trainers.map((t) => ({ label: t.profile.full_name, value: t.id }))
+    },
+    {
+      key: "is_active",
+      label: "Portal Status",
+      options: [
+        { label: "Login Enabled", value: "true" },
+        { label: "Login Disabled", value: "false" }
+      ]
+    }
   ], [plans, trainers]);
 
   // Actions row handlers
@@ -785,35 +824,32 @@ export default function MemberManagement() {
 
       {/* Query Filter and Actions */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between gap-4">
-          <FilterBar
-            filters={filters}
-            onFilterChange={(newFilters) => setFilters(prev => ({ ...prev, ...newFilters }))}
-            filterOptions={{
-              status: [
-                { label: "Active Subs", value: "active" },
-                { label: "Expired Subs", value: "expired" },
-                { label: "All Members", value: "all" }
-              ],
-              gender: [
-                { label: "Male", value: "male" },
-                { label: "Female", value: "female" },
-                { label: "Other", value: "other" }
-              ],
-              plans: plans.map((p) => ({ label: p.name, value: p.id })),
-              trainers: trainers.map((t) => ({ label: t.profile.full_name, value: t.id })),
-              is_active: [
-                { label: "Login Enabled", value: "true" },
-                { label: "Login Disabled", value: "false" }
-              ]
-            }}
-          />
-
-          <ActionToolbar
-            onSearch={setSearch}
-            onExportCsv={() => handleExport("csv")}
-            onExportExcel={() => handleExport("excel")}
-          />
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full">
+          <div className="flex-1 w-full">
+            <FilterBar
+              searchQuery={search}
+              onSearchChange={setSearch}
+              filters={filterConfigs}
+              filterValues={filters}
+              onFilterChange={(key, val) => setFilters(prev => ({ ...prev, [key]: val }))}
+              onClearFilters={() => setFilters({
+                status: "all",
+                gender: "",
+                plan_id: "",
+                trainer_id: "",
+                is_active: "",
+                show_archived: false
+              })}
+            />
+          </div>
+          <Button
+            onClick={() => handleExport("xlsx")}
+            variant="outline"
+            className="h-11 rounded-2xl border-white/5 bg-[#121212] hover:bg-[#171717] text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 px-4 shadow-lg w-full md:w-auto shrink-0"
+          >
+            <Download size={14} />
+            Export List
+          </Button>
         </div>
 
         {/* Selected rows operations */}
