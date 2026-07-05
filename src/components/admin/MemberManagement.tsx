@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { 
   Users, UserCheck, UserX, AlertTriangle, 
   UserPlus, Upload, MapPin, Phone, Mail, Award, Activity,
-  Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye
+  Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye, Sliders
 } from "lucide-react";
 import { memberService, Member } from "../../lib/memberService";
 import { notify } from "../../lib/notify";
