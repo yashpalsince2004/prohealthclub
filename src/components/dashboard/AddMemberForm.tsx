@@ -376,7 +376,12 @@ export default function AddMemberForm({
   };
 
   // ── Success card ─────────────────────────────────────────────
-  const PORTAL_URL = "https://prohealthclub-two.vercel.app/login";
+  // Derives the login URL from the current host — works on localhost, staging, and production
+  // without any code changes.
+  const PORTAL_URL =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/login`
+      : "/login";
 
   const handleCopyCredentials = () => {
     if (!createdSummary) return;
