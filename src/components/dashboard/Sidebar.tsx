@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { 
   LayoutDashboard, 
@@ -32,48 +33,58 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   roles: UserRole[];
-  badge?: string;
+  badge?: number;
+  group?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   // Admin only
-  { id: "dashboard",    label: "Dashboard",      href: "/admin",              icon: LayoutDashboard, roles: ["admin"] },
-  { id: "users",        label: "User Management",href: "/admin/users",         icon: Users,           roles: ["admin"] },
-  { id: "receptionists",label: "Receptionists",  href: "/admin/receptionists", icon: UserCheck,       roles: ["admin"] },
-  { id: "trainers",     label: "Trainers",       href: "/admin/trainers",      icon: Dumbbell,        roles: ["admin"] },
-  { id: "members",      label: "Members",        href: "/admin/members",       icon: Users,           roles: ["admin"] },
-  { id: "revenue",      label: "Revenue",        href: "/admin/revenue",       icon: TrendingUp,      roles: ["admin"] },
-  { id: "analytics",    label: "Analytics",      href: "/admin/analytics",     icon: BarChart2,       roles: ["admin"] },
-  { id: "leads",        label: "Leads",          href: "/admin/leads",         icon: UserPlus,        roles: ["admin"] },
-  { id: "reports",      label: "Reports",        href: "/admin/reports",       icon: FileSpreadsheet, roles: ["admin"] },
-  { id: "settings",     label: "Settings",       href: "/admin/settings",      icon: Settings,        roles: ["admin"] },
+  { id: "dashboard",    label: "Dashboard Overview",href: "/admin",              icon: LayoutDashboard, roles: ["admin"], group: "Dashboard" },
+  
+  { id: "receptionists",label: "Receptionists",  href: "/admin/receptionists", icon: UserCheck,       roles: ["admin"], group: "Management" },
+  { id: "trainers",     label: "Trainers",       href: "/admin/trainers",      icon: Dumbbell,        roles: ["admin"], group: "Management" },
+  { id: "members",      label: "Members",        href: "/admin/members",       icon: Users,           roles: ["admin"], group: "Management" },
+  
+  { id: "memberships",  label: "Memberships",    href: "/reception#memberships",icon: CreditCard,     roles: ["admin"], group: "Operations" },
+  { id: "attendance",   label: "Attendance",     href: "/reception#attendance",icon: Clock,           roles: ["admin"], group: "Operations" },
+  { id: "revenue",      label: "Payments",       href: "/admin/revenue",       icon: Banknote,        roles: ["admin"], group: "Operations" },
+  { id: "leads",        label: "Leads",          href: "/admin/leads",         icon: UserPlus,        roles: ["admin"], group: "Operations" },
+  
+  { id: "reports",      label: "Reports Export", href: "/admin/reports",       icon: FileSpreadsheet, roles: ["admin"], group: "Analytics" },
+  { id: "analytics",    label: "Analytics Charts",href: "/admin/analytics",     icon: BarChart2,       roles: ["admin"], group: "Analytics" },
+  
+  { id: "plans",        label: "Pricing Plans",  href: "/reception#memberships",icon: CreditCard,     roles: ["admin"], group: "Configuration" },
+  { id: "exercises",    label: "Exercise Library",href: "/trainer#workouts",    icon: Dumbbell,        roles: ["admin"], group: "Configuration" },
+  { id: "settings",     label: "Settings",       href: "/admin/settings",      icon: Settings,        roles: ["admin"], group: "Configuration" },
+  
+  { id: "profile",      label: "My Profile",     href: "/member/profile",      icon: User,            roles: ["admin"], group: "System" },
 
   // Receptionist only
-  { id: "dashboard",    label: "Front Desk",     href: "/reception",           icon: LayoutDashboard, roles: ["receptionist"] },
-  { id: "members",      label: "Members",        href: "/reception#members",   icon: Users,           roles: ["receptionist"] },
-  { id: "memberships",  label: "Memberships",    href: "/reception#memberships",icon: CreditCard,     roles: ["receptionist"] },
-  { id: "billing",      label: "Payments",       href: "/reception#payments",  icon: Banknote,        roles: ["receptionist"] },
-  { id: "attendance",   label: "Attendance",     href: "/reception#attendance",icon: Clock,           roles: ["receptionist"] },
-  { id: "biometrics",   label: "Biometric",      href: "/reception#biometric", icon: Fingerprint,     roles: ["receptionist"] },
-  { id: "leads",        label: "Leads",          href: "/reception/leads",     icon: UserPlus,        roles: ["receptionist"] },
-  { id: "renewals",     label: "Expiring Soon",  href: "/reception#expiring",  icon: AlertTriangle,   roles: ["receptionist"] },
+  { id: "dashboard",    label: "Front Desk",     href: "/reception",           icon: LayoutDashboard, roles: ["receptionist"], group: "Dashboard" },
+  { id: "members",      label: "Members",        href: "/reception#members",   icon: Users,           roles: ["receptionist"], group: "Management" },
+  { id: "memberships",  label: "Memberships",    href: "/reception#memberships",icon: CreditCard,     roles: ["receptionist"], group: "Operations" },
+  { id: "billing",      label: "Payments",       href: "/reception#payments",  icon: Banknote,        roles: ["receptionist"], group: "Operations" },
+  { id: "attendance",   label: "Attendance",     href: "/reception#attendance",icon: Clock,           roles: ["receptionist"], group: "Operations" },
+  { id: "biometrics",   label: "Biometric",      href: "/reception#biometric", icon: Fingerprint,     roles: ["receptionist"], group: "Operations" },
+  { id: "leads",        label: "Leads",          href: "/reception/leads",     icon: UserPlus,        roles: ["receptionist"], group: "Operations" },
+  { id: "renewals",     label: "Expiring Soon",  href: "/reception#expiring",  icon: AlertTriangle,   roles: ["receptionist"], group: "Operations" },
 
   // Trainer only
-  { id: "dashboard",    label: "Dashboard",      href: "/trainer",             icon: LayoutDashboard, roles: ["trainer"] },
-  { id: "members",      label: "My Members",     href: "/trainer#members",     icon: Users,           roles: ["trainer"] },
-  { id: "workouts",     label: "Workout Plans",  href: "/trainer#workouts",    icon: Dumbbell,        roles: ["trainer"] },
-  { id: "diets",        label: "Diet Plans",     href: "/trainer#diets",       icon: Salad,           roles: ["trainer"] },
-  { id: "attendance",   label: "Attendance",     href: "/trainer#attendance",  icon: Clock,           roles: ["trainer"] },
-  { id: "profile",      label: "My Profile",     href: "/trainer/profile",     icon: User,            roles: ["trainer"] },
+  { id: "dashboard",    label: "Dashboard",      href: "/trainer",             icon: LayoutDashboard, roles: ["trainer"], group: "Dashboard" },
+  { id: "members",      label: "My Members",     href: "/trainer#members",     icon: Users,           roles: ["trainer"], group: "Management" },
+  { id: "workouts",     label: "Workout Plans",  href: "/trainer#workouts",    icon: Dumbbell,        roles: ["trainer"], group: "Operations" },
+  { id: "diets",        label: "Diet Plans",     href: "/trainer#diets",       icon: Salad,           roles: ["trainer"], group: "Operations" },
+  { id: "attendance",   label: "Attendance",     href: "/trainer#attendance",  icon: Clock,           roles: ["trainer"], group: "Operations" },
+  { id: "profile",      label: "My Profile",     href: "/trainer/profile",      icon: User,            roles: ["trainer"], group: "System" },
 
   // Member only
-  { id: "dashboard",    label: "My Dashboard",   href: "/member",              icon: LayoutDashboard, roles: ["member"] },
-  { id: "membership",   label: "Membership",     href: "/member#membership",   icon: CreditCard,      roles: ["member"] },
-  { id: "attendance",   label: "Attendance",     href: "/member#attendance",   icon: Clock,           roles: ["member"] },
-  { id: "workout",      label: "Workout Plan",   href: "/member#workout",      icon: Dumbbell,        roles: ["member"] },
-  { id: "diet",         label: "Diet Plan",      href: "/member#diet",         icon: Salad,           roles: ["member"] },
-  { id: "payments",     label: "Payments",       href: "/member#payments",     icon: Banknote,        roles: ["member"] },
-  { id: "profile",      label: "My Profile",     href: "/member/profile",      icon: User,            roles: ["member"] },
+  { id: "dashboard",    label: "My Dashboard",   href: "/member",              icon: LayoutDashboard, roles: ["member"], group: "Dashboard" },
+  { id: "membership",   label: "Membership",     href: "/member#membership",   icon: CreditCard,      roles: ["member"], group: "Operations" },
+  { id: "attendance",   label: "Attendance",     href: "/member#attendance",   icon: Clock,           roles: ["member"], group: "Operations" },
+  { id: "workout",      label: "Workout Plan",   href: "/member#workout",      icon: Dumbbell,        roles: ["member"], group: "Operations" },
+  { id: "diet",         label: "Diet Plan",      href: "/member#diet",         icon: Salad,           roles: ["member"], group: "Operations" },
+  { id: "payments",     label: "Payments",       href: "/member#payments",     icon: Banknote,        roles: ["member"], group: "Operations" },
+  { id: "profile",      label: "My Profile",     href: "/member/profile",      icon: User,            roles: ["member"], group: "System" },
 ];
 
 interface SidebarProps {
@@ -127,25 +138,35 @@ export default function Sidebar({ currentTab, onChangeTab, isCollapsed, onToggle
 
       {/* Navigation Group */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-2 scrollbar-none">
-        {visibleItems.map((item) => {
-          // Check if link is active
-          const isActive = onChangeTab
-            ? currentTab === item.id
-            : pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+        {(() => {
+          let lastGroup = "";
+          return visibleItems.map((item) => {
+            const showGroupHeader = !isCollapsed && item.group && item.group !== lastGroup;
+            if (item.group) lastGroup = item.group;
             
-          const Icon = item.icon;
-          
-          return (
-            <a
-              key={item.label}
-              href={item.href}
-              onClick={(e) => handleItemClick(e, item)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all relative group ${
-                isActive
-                  ? "text-white bg-[#FF6B00]/10"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
+            // Check if link is active
+            const isActive = onChangeTab
+              ? currentTab === item.id
+              : pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+              
+            const Icon = item.icon;
+            
+            return (
+              <React.Fragment key={item.label}>
+                {showGroupHeader && (
+                  <div className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-3 pt-3 pb-1 animate-in fade-in duration-200">
+                    {item.group}
+                  </div>
+                )}
+                <a
+                  href={item.href}
+                  onClick={(e) => handleItemClick(e, item)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all relative group ${
+                    isActive
+                      ? "text-white bg-[#FF6B00]/10"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
               {/* Active Tab indicator bar */}
               {isActive && (
                 <motion.div
@@ -177,9 +198,11 @@ export default function Sidebar({ currentTab, onChangeTab, isCollapsed, onToggle
                 </div>
               )}
             </a>
-          );
-        })}
-      </div>
+          </React.Fragment>
+        );
+      });
+    })()}
+</div>
 
       {/* Footer Branding */}
       {!isCollapsed && (
