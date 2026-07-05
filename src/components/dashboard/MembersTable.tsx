@@ -43,12 +43,11 @@ export default function MembersTable({ onSelectMember, onDeleteMember }: Members
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<any>(
+      const res = await api.getEnvelope<MemberResponse[]>(
         `/api/v1/members/?page=${page}&per_page=20&search=${encodeURIComponent(debouncedSearch)}`
       );
-      const membersList = Array.isArray(res) ? res : (res?.members || []);
-      setMembers(membersList);
-      setTotal(res?.total ?? (membersList.length >= 20 ? (page * 20 + 1) : (page - 1) * 20 + membersList.length));
+      setMembers(res.data || []);
+      setTotal(res.meta?.total ?? 0);
     } catch (err: any) {
       setError(err.message || "Failed to load members list");
     } finally {

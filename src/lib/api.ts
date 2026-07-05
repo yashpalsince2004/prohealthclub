@@ -28,7 +28,11 @@ function onRefreshed(token: string) {
   refreshSubscribers = [];
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiFetch<T>(
+  path: string, 
+  options: RequestInit = {}, 
+  returnEnvelope = false
+): Promise<any> {
   const url = `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 
   // Attach auth token if available
@@ -81,14 +85,14 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     }
 
     // Queue request until refresh completes, then retry with new token
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<any>((resolve, reject) => {
       subscribeTokenRefresh(async (newToken) => {
         headers.set("Authorization", `Bearer ${newToken}`);
         try {
           const retryRes = await fetch(url, { ...options, headers });
           const retryBody: ApiResponse<T> = await retryRes.json();
           if (retryBody.success) {
-            resolve(retryBody.data);
+            resolve(returnEnvelope ? retryBody : retryBody.data);
           } else {
             reject(
               new ApiError(retryBody.error.message, retryBody.error.code, retryBody.error.details)
@@ -106,7 +110,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   try {
     body = await response.json();
   } catch {
-    if (response.ok) return {} as T;
+    if (response.ok) return returnEnvelope ? { success: true, data: {} as T } : {} as T;
     throw new ApiError("Failed to parse server response", "SERVER_ERROR");
   }
 
@@ -114,11 +118,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     throw new ApiError(body.error.message, body.error.code, body.error.details);
   }
 
-  return body.data;
+  return returnEnvelope ? body : body.data;
 }
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
+  getEnvelope: <T>(path: string) => apiFetch<T>(path, {}, true),
   post: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, {
       method: "POST",
