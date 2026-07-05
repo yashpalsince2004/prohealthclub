@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Eye, Archive, RefreshCw, UserPlus, Download,
   MoreHorizontal, Users, CheckCircle, XCircle, X,
-  ChevronLeft, ChevronRight, Filter,
+  ChevronLeft, ChevronRight, Filter, User, ShieldAlert,
+  Award, Clock, DollarSign, Activity, Trash, Calendar, Sliders
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { formatDate } from "../../lib/format";
@@ -13,9 +14,13 @@ import {
 } from "../ui/table";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Label } from "../ui/label";
 import { toast } from "sonner";
 import AddMemberForm from "./AddMemberForm";
+import { memberService } from "../../lib/memberService";
+import Permission from "../common/Permission";
+import { notify } from "../../lib/notify";
 
 interface MembersTableProps {
   onSelectMember?: (id: string) => void;
@@ -48,28 +53,211 @@ function StatusBadge({ status }: { status: string }) {
 function ViewMemberPanel({
   member,
   onClose,
+  onRefreshList,
 }: {
   member: MemberResponse;
   onClose: () => void;
+  onRefreshList?: () => void;
 }) {
-  const p = member.profile;
-  const am = member.active_membership;
+  const [currentMember, setCurrentMember] = useState<MemberResponse>(member);
+  const [membershipHistory, setMembershipHistory] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [trainers, setTrainers] = useState<any[]>([]);
+
+  // Dialog open states
+  const [isExtendOpen, setIsExtendOpen] = useState(false);
+  const [isRenewOpen, setIsRenewOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [isFreezeConfirmOpen, setIsFreezeConfirmOpen] = useState(false);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [isTrainerAssignOpen, setIsTrainerAssignOpen] = useState(false);
+
+  // Dialog input states
+  const [extendDays, setExtendDays] = useState(30);
+  const [extendNotes, setExtendNotes] = useState("");
+  const [renewPlanId, setRenewPlanId] = useState("");
+  const [renewStartFromExpiry, setRenewStartFromExpiry] = useState(true);
+  const [renewNotes, setRenewNotes] = useState("");
+  const [upgradePlanId, setUpgradePlanId] = useState("");
+  const [upgradeNotes, setUpgradeNotes] = useState("");
+  const [freezeNotes, setFreezeNotes] = useState("");
+  const [cancelNotes, setCancelNotes] = useState("");
+  const [assignTrainerId, setAssignTrainerId] = useState("");
+
+  const loadMemberDetails = async () => {
+    try {
+      const m = await memberService.getMemberById(currentMember.id);
+      setCurrentMember(m);
+      
+      const [history, payments, attendance] = await Promise.all([
+        memberService.getMembershipHistory(currentMember.id),
+        memberService.getPaymentHistory(currentMember.id),
+        memberService.getAttendanceHistory(currentMember.id),
+      ]);
+      setMembershipHistory(history);
+      setPaymentHistory(payments);
+      setAttendanceHistory(attendance);
+    } catch (err) {
+      console.error("Failed to load member details in panel", err);
+    }
+  };
+
+  useEffect(() => {
+    loadMemberDetails();
+  }, [currentMember.id]);
+
+  useEffect(() => {
+    const fetchGlobals = async () => {
+      try {
+        const [pList, tList] = await Promise.all([
+          api.get<any[]>("/api/v1/plans"),
+          api.get<any[]>("/api/v1/trainers"),
+        ]);
+        setPlans(pList);
+        setTrainers(tList);
+      } catch (err) {
+        console.error("Failed to load plans or trainers", err);
+      }
+    };
+    fetchGlobals();
+  }, []);
+
+  const handleExtendSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.extendMembership(currentMember.active_membership.id, extendDays, extendNotes);
+      notify.success("Membership extended successfully");
+      setIsExtendOpen(false);
+      setExtendNotes("");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to extend membership");
+    }
+  };
+
+  const handleRenewSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.renewMembership(currentMember.active_membership.id, {
+        plan_id: renewPlanId,
+        start_from_expiry: renewStartFromExpiry,
+        notes: renewNotes
+      });
+      notify.success("Membership renewed successfully");
+      setIsRenewOpen(false);
+      setRenewNotes("");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to renew membership");
+    }
+  };
+
+  const handleUpgradeSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.upgradeMembership(currentMember.active_membership.id, upgradePlanId, upgradeNotes);
+      notify.success("Plan changed successfully");
+      setIsUpgradeOpen(false);
+      setUpgradeNotes("");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to change membership plan");
+    }
+  };
+
+  const handleFreezeSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.freezeMembership(currentMember.active_membership.id, freezeNotes);
+      notify.success("Membership frozen successfully");
+      setIsFreezeConfirmOpen(false);
+      setFreezeNotes("");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to freeze membership");
+    }
+  };
+
+  const handleUnfreezeSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.unfreezeMembership(currentMember.active_membership.id);
+      notify.success("Membership resumed successfully");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to resume membership");
+    }
+  };
+
+  const handleCancelSubmit = async () => {
+    if (!currentMember?.active_membership) {
+      notify.error("Active membership not found");
+      return;
+    }
+    try {
+      await memberService.cancelMembership(currentMember.active_membership.id, cancelNotes);
+      notify.success("Membership cancelled successfully");
+      setIsCancelConfirmOpen(false);
+      setCancelNotes("");
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to cancel membership");
+    }
+  };
+
+  const handleAssignTrainerSubmit = async () => {
+    try {
+      await memberService.updateMember(currentMember.id, { trainer_id: assignTrainerId || undefined });
+      notify.success("Trainer assignment updated successfully");
+      setIsTrainerAssignOpen(false);
+      loadMemberDetails();
+      onRefreshList?.();
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to update trainer assignment");
+    }
+  };
+
+  const p = currentMember.profile;
+  const am = currentMember.active_membership;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-md h-full bg-[#111] border-l border-white/5 overflow-y-auto shadow-2xl flex flex-col"
+        className="w-full max-w-lg h-full bg-[#090909] border-l border-white/5 overflow-y-auto shadow-2xl flex flex-col justify-between"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 sticky top-0 bg-[#111] z-10">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 sticky top-0 bg-[#090909] z-10">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-[#FF6B00]/10 border border-[#FF6B00]/20 flex items-center justify-center text-[#FF6B00] font-black text-sm">
               {p.full_name.charAt(0).toUpperCase()}
             </div>
             <div>
               <p className="text-sm font-bold text-white leading-tight">{p.full_name}</p>
-              <p className="text-[10px] text-slate-500 font-semibold">{p.phone || "—"}</p>
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Member ID: {currentMember.id.substring(0, 8)}...</p>
             </div>
           </div>
           <button
@@ -81,69 +269,594 @@ function ViewMemberPanel({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6">
-          {/* Membership card */}
-          {am ? (
-            <div className="rounded-2xl border border-[#FF6B00]/20 bg-[#FF6B00]/5 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#FF6B00]">
-                  Active Plan
-                </span>
-                <StatusBadge status={am.status} />
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          {/* Membership card with Action Buttons */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <Award size={14} /> Membership Subscription
+            </h4>
+            {am ? (
+              <div className="space-y-4 text-xs font-semibold">
+                <div className="grid grid-cols-2 gap-4 text-slate-300">
+                  <div>
+                    <p className="text-slate-500 text-[10px] uppercase">Current Plan</p>
+                    <p className="text-[#FF6B00] font-black mt-0.5">{am.plan_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] uppercase">Days Remaining</p>
+                    <p className="text-white font-mono mt-0.5">{am.days_remaining} Days</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] uppercase">Valid Duration</p>
+                    <p className="text-white mt-0.5">{am.start_date} to {am.end_date}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] uppercase">Status</p>
+                    <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                      am.status === "active" ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"
+                    }`}>
+                      {am.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Control buttons */}
+                <Permission allowedRoles={["admin", "receptionist"]}>
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
+                    <Button
+                      onClick={() => {
+                        setUpgradePlanId("");
+                        setIsUpgradeOpen(true);
+                      }}
+                      className="h-8 bg-black hover:bg-slate-900 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-200 rounded-xl"
+                    >
+                      Change Plan
+                    </Button>
+                    <Button
+                      onClick={() => setIsExtendOpen(true)}
+                      className="h-8 bg-black hover:bg-slate-900 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-200 rounded-xl"
+                    >
+                      Extend
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setRenewPlanId("");
+                        setIsRenewOpen(true);
+                      }}
+                      className="h-8 bg-black hover:bg-slate-900 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-200 rounded-xl"
+                    >
+                      Renew Plan
+                    </Button>
+                    {am.status === "active" ? (
+                      <Button
+                        onClick={() => setIsFreezeConfirmOpen(true)}
+                        className="h-8 bg-black hover:bg-slate-900 border border-[#F59E0B]/20 text-[10px] font-bold uppercase tracking-wider text-yellow-500 rounded-xl"
+                      >
+                        Freeze
+                      </Button>
+                    ) : am.status === "paused" ? (
+                      <Button
+                        onClick={handleUnfreezeSubmit}
+                        className="h-8 bg-black hover:bg-slate-900 border border-green-500/20 text-[10px] font-bold uppercase tracking-wider text-green-500 rounded-xl"
+                      >
+                        Resume
+                      </Button>
+                    ) : null}
+                    <Button
+                      onClick={() => setIsCancelConfirmOpen(true)}
+                      className="h-8 bg-black hover:bg-slate-900 border border-red-500/20 text-[10px] font-bold uppercase tracking-wider text-red-500 rounded-xl col-span-2"
+                    >
+                      Cancel Subscription
+                    </Button>
+                  </div>
+                </Permission>
               </div>
-              <p className="text-sm font-black text-white">{am.plan_name}</p>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-slate-500 font-semibold">Start</p>
-                  <p className="text-white font-bold">{formatDate(am.start_date)}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500 font-semibold">Expiry</p>
-                  <p className="text-white font-bold">{formatDate(am.end_date)}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500 font-semibold">Days Left</p>
-                  <p className="text-white font-bold">{am.days_remaining}</p>
-                </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-xs text-slate-500 italic">No active membership subscription found.</p>
+                <Permission allowedRoles={["admin", "receptionist"]}>
+                  <Button
+                    onClick={() => {
+                      if (plans.length > 0) {
+                        setRenewPlanId(plans[0].id);
+                        setIsRenewOpen(true);
+                      } else {
+                        notify.error("No plans configured");
+                      }
+                    }}
+                    className="mt-2 h-8 px-4 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    Subscribe Member
+                  </Button>
+                </Permission>
               </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/5 bg-white/2 p-4 text-center">
-              <XCircle size={24} className="mx-auto text-slate-600 mb-2" />
-              <p className="text-xs text-slate-500 font-semibold">No Active Membership</p>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Personal info */}
-          <Section title="Personal">
-            <Field label="Member ID" value={member.id.substring(0, 12) + "…"} mono />
-            <Field label="Email" value={p.email ?? "—"} />
-            <Field label="Phone" value={p.phone ?? "—"} />
-            <Field label="Date of Birth" value={p.date_of_birth ? formatDate(p.date_of_birth) : "—"} />
-            <Field label="Gender" value={p.gender ?? "—"} />
-            <Field label="Joined" value={formatDate(member.joining_date)} />
-          </Section>
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <User size={14} /> Personal Details
+            </h4>
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Gender</p>
+                <p className="text-white capitalize mt-0.5">{p.gender || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Date of Birth</p>
+                <p className="text-white mt-0.5">{p.date_of_birth ? formatDate(p.date_of_birth) : "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Email Address</p>
+                <p className="text-white mt-0.5 truncate">{p.email || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Phone Number</p>
+                <p className="text-white mt-0.5">{p.phone || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Occupation</p>
+                <p className="text-white mt-0.5 capitalize">{p.occupation || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase">Height & Weight</p>
+                <p className="text-white mt-0.5">
+                  {p.height ? `${p.height} cm` : "N/A"} / {p.weight ? `${p.weight} kg` : "N/A"}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-slate-500 text-[10px] uppercase">Residential Address</p>
+                <p className="text-white mt-0.5">{p.address || "N/A"}</p>
+              </div>
+            </div>
+          </div>
 
-          {p.address && (
-            <Section title="Address">
-              <p className="text-xs text-slate-300">{p.address}</p>
-            </Section>
-          )}
+          {/* Emergency contact */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <ShieldAlert size={14} /> Medical & Emergency Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase font-bold text-[#FF6B00]">Emergency Contact Name</p>
+                <p className="text-white mt-0.5">{p.emergency_contact_name || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[10px] uppercase font-bold text-[#FF6B00]">Emergency Relation & Phone</p>
+                <p className="text-white mt-0.5">
+                  {p.emergency_contact_phone || "N/A"}{" "}
+                  {p.emergency_relation && `(${p.emergency_relation})`}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-slate-500 text-[10px] uppercase font-bold text-red-400">Medical Notes / Constraints</p>
+                <p className="text-white mt-0.5 bg-black/40 border border-white/5 p-2 rounded-xl text-[11px] whitespace-pre-line">
+                  {p.medical_notes || "No reported medical conditions or physical constraints."}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          {(p.emergency_contact_name || p.emergency_contact_phone) && (
-            <Section title="Emergency Contact">
-              <Field label="Name" value={p.emergency_contact_name ?? "—"} />
-              <Field label="Phone" value={p.emergency_contact_phone ?? "—"} />
-            </Section>
-          )}
+          {/* Assigned Coach */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><Users size={14} /> Assigned Coach</span>
+              <Permission allowedRoles={["admin", "receptionist"]}>
+                <Button
+                  onClick={() => {
+                    setAssignTrainerId(currentMember.assigned_trainer?.id || "");
+                    setIsTrainerAssignOpen(true);
+                  }}
+                  className="h-6 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider text-slate-300"
+                >
+                  {currentMember.assigned_trainer ? "Change Trainer" : "Assign Trainer"}
+                </Button>
+              </Permission>
+            </h4>
+            {currentMember.assigned_trainer ? (
+              <div className="text-xs font-semibold text-slate-300">
+                <p className="text-white">{currentMember.assigned_trainer.full_name}</p>
+                <p className="text-[10px] text-slate-500">{currentMember.assigned_trainer.specialization || "General Coaching Specialist"}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">No personal trainer assigned.</p>
+            )}
+          </div>
 
-          {member.notes && (
-            <Section title="Notes">
-              <p className="text-xs text-slate-300 leading-relaxed">{member.notes}</p>
-            </Section>
+          {/* Membership history timeline */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <Clock size={14} /> Membership Timeline
+            </h4>
+            {membershipHistory.length > 0 ? (
+              <div className="space-y-4 pl-2 border-l border-white/5 text-[11px] font-semibold text-slate-400">
+                {membershipHistory.map((m: any, index: number) => {
+                  const isCurrent = currentMember.active_membership?.id === m.id;
+                  return (
+                    <div key={m.id || index} className="relative pl-4">
+                      <div className={`absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full ${
+                        isCurrent ? "bg-[#FF6B00]" : m.status === "active" ? "bg-green-500" : "bg-slate-700"
+                      }`} />
+                      <p className="text-white flex items-center gap-2">
+                        {m.plan?.name || m.plan_name || "Membership Plan"}{" "}
+                        {isCurrent && <span className="text-[8px] bg-[#FF6B00]/10 border border-[#FF6B00]/20 text-[#FF6B00] px-1 py-0.5 rounded-md font-bold uppercase">Current</span>}
+                      </p>
+                      <p className="text-slate-500 text-[10px]">
+                        {m.start_date} to {m.end_date} • <span className="capitalize">{m.status}</span>
+                      </p>
+                      {m.notes && <p className="text-[10px] text-slate-600 italic mt-0.5">Note: {m.notes}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">No membership subscription timeline records found.</p>
+            )}
+          </div>
+
+          {/* Payments list */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <DollarSign size={14} /> Payments History
+            </h4>
+            {paymentHistory.length > 0 ? (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {paymentHistory.map((p: any, index: number) => (
+                  <div key={p.id || index} className="bg-black/40 border border-white/5 p-2.5 rounded-2xl flex justify-between items-center text-xs font-semibold">
+                    <div>
+                      <p className="text-white">₹{p.amount_paid} • <span className="capitalize text-slate-400">{p.payment_method}</span></p>
+                      <p className="text-[10px] text-slate-500">{p.payment_date} • Ref: {p.transaction_reference || "N/A"}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
+                      p.payment_status === "completed" ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"
+                    }`}>
+                      {p.payment_status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">No payment transactions registered.</p>
+            )}
+          </div>
+
+          {/* Attendance history */}
+          <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+              <Activity size={14} /> Attendance History (Recent Visit Logs)
+            </h4>
+            {attendanceHistory.length > 0 ? (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {attendanceHistory.slice(0, 10).map((a: any, index: number) => {
+                  const checkInDate = new Date(a.check_in).toLocaleString();
+                  const checkOutDate = a.check_out ? new Date(a.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "In Gym";
+                  return (
+                    <div key={a.id || index} className="bg-black/40 border border-white/5 p-2.5 rounded-2xl flex justify-between items-center text-xs font-semibold">
+                      <div>
+                        <p className="text-white">{checkInDate}</p>
+                        <p className="text-[10px] text-slate-500">Source: <span className="capitalize">{a.source}</span> {a.duration_minutes && `• Duration: ${a.duration_minutes}m`}</p>
+                      </div>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
+                        a.check_out ? "bg-slate-500/10 text-slate-400" : "bg-green-500/10 text-green-500"
+                      }`}>
+                        {a.check_out ? `Out ${checkOutDate}` : "Active"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">No attendance scans or manual visit logs.</p>
+            )}
+          </div>
+
+          {/* Notes */}
+          {currentMember.notes && (
+            <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 border-b border-white/5 pb-1">
+                Notes
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">{currentMember.notes}</p>
+            </div>
           )}
         </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/5 p-4">
+          <Button
+            onClick={onClose}
+            className="w-full h-11 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-wider hover:bg-white/10 text-white"
+          >
+            Close Panel
+          </Button>
+        </div>
       </div>
+
+      {/* SUB-MODALS FOR MEMBERSHIP CONTROLS */}
+      {/* 1. EXTEND MEMBERSHIP */}
+      <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><Calendar size={14} className="text-[#FF6B00]" /> Extend Membership</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Extend the member's current active plan expiration date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-left">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Number of Days</Label>
+              <input
+                type="number"
+                value={extendDays}
+                onChange={(e) => setExtendDays(parseInt(e.target.value) || 0)}
+                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+                min="1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes / Reason</Label>
+              <textarea
+                value={extendNotes}
+                onChange={(e) => setExtendNotes(e.target.value)}
+                className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
+                placeholder="Reason for extension..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
+            <Button
+              type="button"
+              onClick={() => setIsExtendOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleExtendSubmit}
+              disabled={extendDays <= 0}
+              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-45"
+            >
+              Extend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. RENEW MEMBERSHIP */}
+      <Dialog open={isRenewOpen} onOpenChange={setIsRenewOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><RefreshCw size={14} className="text-[#FF6B00]" /> Renew Membership</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Subscribe or extend membership with a chosen plan period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-left">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Renewal Plan</Label>
+              <select
+                value={renewPlanId}
+                onChange={(e) => setRenewPlanId(e.target.value)}
+                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+              >
+                <option value="">Select Plan...</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} - ₹{p.price}</option>
+                ))}
+              </select>
+            </div>
+            {am && (
+              <div className="flex items-center justify-between bg-black/40 border border-white/5 p-3 rounded-xl">
+                <span className="text-[11px] font-bold text-slate-400">Start from Expiry Date?</span>
+                <input
+                  type="checkbox"
+                  checked={renewStartFromExpiry}
+                  onChange={(e) => setRenewStartFromExpiry(e.target.checked)}
+                  className="w-4 h-4 accent-[#FF6B00] cursor-pointer"
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes / Comments</Label>
+              <textarea
+                value={renewNotes}
+                onChange={(e) => setRenewNotes(e.target.value)}
+                className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
+                placeholder="Payment terms, special discounts..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
+            <Button
+              type="button"
+              onClick={() => setIsRenewOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRenewSubmit}
+              disabled={!renewPlanId}
+              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-45"
+            >
+              Renew
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. CHANGE / UPGRADE PLAN */}
+      <Dialog open={isUpgradeOpen} onOpenChange={setIsUpgradeOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><Sliders size={14} className="text-[#FF6B00]" /> Migrate/Change Plan</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Instantly cancel the current plan and switch to a new plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-left">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select New Plan</Label>
+              <select
+                value={upgradePlanId}
+                onChange={(e) => setUpgradePlanId(e.target.value)}
+                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+              >
+                <option value="">Select Plan...</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} - ₹{p.price}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes / Reason</Label>
+              <textarea
+                value={upgradeNotes}
+                onChange={(e) => setUpgradeNotes(e.target.value)}
+                className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
+                placeholder="Reason for migration..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
+            <Button
+              type="button"
+              onClick={() => setIsUpgradeOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpgradeSubmit}
+              disabled={!upgradePlanId}
+              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-[10px] font-black uppercase tracking-wider disabled:opacity-45"
+            >
+              Migrate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 4. FREEZE MEMBERSHIP */}
+      <Dialog open={isFreezeConfirmOpen} onOpenChange={setIsFreezeConfirmOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><Clock size={14} className="text-yellow-500" /> Pause / Freeze Membership</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Are you sure you want to pause/freeze this membership?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 text-left space-y-1.5">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pause Notes / Reason</Label>
+            <textarea
+              value={freezeNotes}
+              onChange={(e) => setFreezeNotes(e.target.value)}
+              className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
+              placeholder="e.g., Medical leave, traveling..."
+            />
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full mt-2">
+            <Button
+              type="button"
+              onClick={() => setIsFreezeConfirmOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleFreezeSubmit}
+              className="h-10 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl text-xs font-black uppercase tracking-wider"
+            >
+              Freeze Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 5. CANCEL MEMBERSHIP */}
+      <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><Trash size={14} className="text-red-500" /> Cancel Membership</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              This will immediately deactivate and terminate the subscription. This action is irreversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 text-left space-y-1.5">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cancellation Reason</Label>
+            <textarea
+              value={cancelNotes}
+              onChange={(e) => setCancelNotes(e.target.value)}
+              className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
+              placeholder="Reason for cancel..."
+            />
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full mt-2">
+            <Button
+              type="button"
+              onClick={() => setIsCancelConfirmOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCancelSubmit}
+              className="h-10 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider"
+            >
+              Terminate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. TRAINER ASSIGNMENT */}
+      <Dialog open={isTrainerAssignOpen} onOpenChange={setIsTrainerAssignOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><Users size={14} className="text-[#FF6B00]" /> Coach Allocation</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Assign or change the fitness coach for this member.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-left">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Fitness Coach</Label>
+              <select
+                value={assignTrainerId}
+                onChange={(e) => setAssignTrainerId(e.target.value)}
+                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+              >
+                <option value="">No Coach / Unassigned</option>
+                {trainers.map((t) => (
+                  <option key={t.id} value={t.id}>{t.profile.full_name} ({t.specialization || "General"})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
+            <Button
+              type="button"
+              onClick={() => setIsTrainerAssignOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAssignTrainerSubmit}
+              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -534,6 +1247,7 @@ export default function MembersTable({ onSelectMember }: MembersTableProps) {
         <ViewMemberPanel
           member={viewMember}
           onClose={() => setViewMember(null)}
+          onRefreshList={fetchMembers}
         />
       )}
     </div>

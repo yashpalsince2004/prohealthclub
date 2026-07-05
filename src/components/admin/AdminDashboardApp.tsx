@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar, { AdminSidebarTab } from "./AdminSidebar";
 import Navbar from "../dashboard/Navbar";
 import DashboardHome from "../dashboard/DashboardHome";
-import MembersTable from "../dashboard/MembersTable";
+import MemberManagement from "./MemberManagement";
 import AdminCharts from "../dashboard/AdminCharts";
 import AttendanceModule from "../dashboard/AttendanceModule";
 import BiometricCenter from "../dashboard/BiometricCenter";
@@ -188,22 +188,7 @@ export default function AdminDashboardApp() {
               )}
 
               {currentTab === "members" && (
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                      Members Directory
-                    </h2>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                      Manage, verify, and inspect registered gym members
-                    </p>
-                  </div>
-                  <MembersTable
-                    onSelectMember={(id) => {
-                      setSelectedMemberId(id);
-                      toast.info(`Inspecting member ID: ${id}`);
-                    }}
-                  />
-                </div>
+                <MemberManagement />
               )}
 
               {currentTab === "staff" && (

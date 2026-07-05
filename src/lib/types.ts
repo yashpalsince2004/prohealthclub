@@ -29,6 +29,12 @@ export interface ProfileResponse {
   emergency_contact_phone: string | null;
   biometric_device_id: number | null;
   member_id?: string;
+  email?: string | null;
+  occupation?: string | null;
+  height?: number | null;
+  weight?: number | null;
+  medical_notes?: string | null;
+  emergency_relation?: string | null;
 }
 
 export interface ActiveMembershipSummary {

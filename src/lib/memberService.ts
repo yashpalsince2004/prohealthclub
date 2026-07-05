@@ -51,6 +51,11 @@ export interface MemberCreatePayload {
   address?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
+  emergency_relation?: string;
+  medical_notes?: string;
+  occupation?: string;
+  height?: number;
+  weight?: number;
   joining_date?: string;
   notes?: string;
   plan_id?: string;
@@ -59,12 +64,18 @@ export interface MemberCreatePayload {
 
 export interface MemberUpdatePayload {
   full_name?: string;
+  email?: string;
   phone?: string;
   date_of_birth?: string;
   gender?: string;
   address?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
+  emergency_relation?: string;
+  medical_notes?: string;
+  occupation?: string;
+  height?: number;
+  weight?: number;
   notes?: string;
   is_active?: boolean;
   biometric_device_id?: number;
@@ -183,6 +194,26 @@ export const memberService = {
       inactive_members: 0,
       expired_memberships: 0
     };
+  },
+
+  async extendMembership(membershipId: string, days: number, notes?: string): Promise<any> {
+    return api.post<any>(`/api/v1/memberships/${membershipId}/extend`, { extend_days: days, notes });
+  },
+
+  async freezeMembership(membershipId: string, notes?: string): Promise<any> {
+    return api.post<any>(`/api/v1/memberships/${membershipId}/freeze`, { notes });
+  },
+
+  async unfreezeMembership(membershipId: string): Promise<any> {
+    return api.post<any>(`/api/v1/memberships/${membershipId}/unfreeze`, {});
+  },
+
+  async upgradeMembership(membershipId: string, newPlanId: string, notes?: string): Promise<any> {
+    return api.post<any>(`/api/v1/memberships/${membershipId}/upgrade`, { new_plan_id: newPlanId, notes });
+  },
+
+  async cancelMembership(membershipId: string, notes?: string): Promise<any> {
+    return api.patch<any>(`/api/v1/memberships/${membershipId}/status`, { status: "cancelled", notes });
   }
 };
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar, { SidebarTab } from "../dashboard/Sidebar";
 import Navbar from "../dashboard/Navbar";
-import MembersTable from "../dashboard/MembersTable";
+import MemberManagement from "../admin/MemberManagement";
 import BiometricPanel from "../dashboard/BiometricPanel";
 import AddMemberForm from "../dashboard/AddMemberForm";
 import ExpiringMemberships from "../dashboard/ExpiringMemberships";
@@ -74,23 +74,7 @@ export default function ReceptionDashboardApp() {
               )}
 
               {currentTab === "members" && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                        Members Catalog
-                      </h2>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                        Register, renew, and inspect registered gym members
-                      </p>
-                    </div>
-                  </div>
-                  <MembersTable
-                    onSelectMember={(id) => {
-                      setSelectedMemberId(id);
-                    }}
-                  />
-                </div>
+                <MemberManagement />
               )}
 
               {currentTab === "attendance" && (
