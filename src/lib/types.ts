@@ -47,12 +47,33 @@ export interface ActiveMembershipSummary {
   auto_renew?: boolean;
 }
 
+export interface TrainerSummary {
+  id: string;
+  full_name: string;
+  specialization?: string | null;
+}
+
+export interface TrainerResponse {
+  id: string;
+  specialization: string | null;
+  experience_years: number | null;
+  bio: string | null;
+  salary: number;
+  joining_staff_date: string;
+  is_available: boolean;
+  is_active: boolean;
+  certifications: string[];
+  profile: ProfileResponse;
+  assigned_members?: MemberResponse[];
+}
+
 export interface MemberResponse {
   id: string;
   joining_date: string;
   notes: string | null;
   profile: ProfileResponse;
   active_membership: ActiveMembershipSummary | null;
+  assigned_trainer?: TrainerSummary | null;
 }
 
 export interface MemberListResponse {

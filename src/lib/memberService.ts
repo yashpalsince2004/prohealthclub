@@ -52,42 +52,43 @@ export interface MemberCreatePayload {
   password?: string;
   full_name: string;
   phone?: string;
-  date_of_birth?: string;
-  gender?: string;
-  address?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  emergency_relation?: string;
-  medical_notes?: string;
-  occupation?: string;
-  height?: number;
-  weight?: number;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_relation?: string | null;
+  medical_notes?: string | null;
+  occupation?: string | null;
+  height?: number | null;
+  weight?: number | null;
   joining_date?: string;
-  notes?: string;
-  plan_id?: string;
-  trainer_id?: string;
+  notes?: string | null;
+  plan_id?: string | null;
+  trainer_id?: string | null;
 }
 
 export interface MemberUpdatePayload {
   full_name?: string;
   email?: string;
   phone?: string;
-  date_of_birth?: string;
-  gender?: string;
-  address?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  emergency_relation?: string;
-  medical_notes?: string;
-  occupation?: string;
-  height?: number;
-  weight?: number;
-  notes?: string;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_relation?: string | null;
+  medical_notes?: string | null;
+  occupation?: string | null;
+  height?: number | null;
+  weight?: number | null;
+  notes?: string | null;
   is_active?: boolean;
-  biometric_device_id?: number;
-  plan_id?: string;
-  trainer_id?: string;
+  biometric_device_id?: number | null;
+  plan_id?: string | null;
+  trainer_id?: string | null;
 }
+
 
 export const memberService = {
   /**
@@ -124,14 +125,18 @@ export const memberService = {
     if (!payload.password) {
       payload.password = generateSecurePassword();
     }
-    return crudApi.createItem<MemberCreatePayload, Member>("/api/v1/members", payload);
+    const sanitized = sanitizePayload(payload);
+    return crudApi.createItem<any, Member>("/api/v1/members", sanitized);
   },
 
   /**
    * Update member administrative fields and notes
    */
   async updateMember(id: string, payload: MemberUpdatePayload): Promise<Member> {
-    return crudApi.updateItem<MemberUpdatePayload, Member>("/api/v1/members", id, payload);
+    console.log("RAW UPDATE PAYLOAD:", payload);
+    const sanitized = sanitizePayload(payload);
+    console.log("SANITIZED UPDATE PAYLOAD:", sanitized);
+    return crudApi.updateItem<any, Member>("/api/v1/members", id, sanitized);
   },
 
   /**
@@ -212,7 +217,8 @@ export const memberService = {
     membershipId: string,
     payload: { plan_id: string; start_from_expiry: boolean; notes?: string }
   ): Promise<any> {
-    return api.post<any>(`/api/v1/memberships/${membershipId}/renew`, payload);
+    const sanitized = sanitizePayload(payload);
+    return api.post<any>(`/api/v1/memberships/${membershipId}/renew`, sanitized);
   },
 
   async freezeMembership(membershipId: string, notes?: string): Promise<any> {
@@ -229,6 +235,22 @@ export const memberService = {
 
   async cancelMembership(membershipId: string, notes?: string): Promise<any> {
     return api.patch<any>(`/api/v1/memberships/${membershipId}/status`, { status: "cancelled", notes });
+  },
+
+  async getMembershipHistory(memberId: string): Promise<any[]> {
+    const res = await api.get<any>(`/api/v1/memberships/?member_id=${memberId}`);
+    return res?.data?.memberships || res?.memberships || res?.data || [];
+  },
+
+  async getPaymentHistory(memberId: string): Promise<any[]> {
+    const res = await api.get<any>(`/api/v1/payments/member/${memberId}`);
+    return res?.data || res || [];
+  },
+
+  async getAttendanceHistory(memberId: string): Promise<any[]> {
+    const res = await api.get<any>(`/api/v1/attendance/member/${memberId}`);
+    const attData = res?.data?.logs || res?.logs || res?.data || res?.data?.data || [];
+    return Array.isArray(attData) ? attData : [];
   }
 };
 
@@ -252,4 +274,30 @@ function generateSecurePassword(): string {
   }
 
   return password.split("").sort(() => 0.5 - Math.random()).join("");
+}
+
+export function sanitizePayload(data: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  
+  const nullFields = [
+    "date_of_birth",
+    "gender",
+    "height",
+    "weight",
+    "trainer_id",
+    "plan_id"
+  ];
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value === "") {
+      if (nullFields.includes(key)) {
+        result[key] = null;
+      }
+      // Omit all other empty optional string fields entirely.
+    } else {
+      result[key] = value;
+    }
+  });
+
+  return result;
 }

@@ -14,7 +14,7 @@ import {
 } from "../ui/table";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { toast } from "sonner";
 import AddMemberForm from "./AddMemberForm";
@@ -89,7 +89,7 @@ function ViewMemberPanel({
   const loadMemberDetails = async () => {
     try {
       const m = await memberService.getMemberById(currentMember.id);
-      setCurrentMember(m);
+      setCurrentMember(m as unknown as MemberResponse);
       
       const [history, payments, attendance] = await Promise.all([
         memberService.getMembershipHistory(currentMember.id),
@@ -132,12 +132,13 @@ function ViewMemberPanel({
     try {
       await memberService.extendMembership(currentMember.active_membership.id, extendDays, extendNotes);
       notify.success("Membership extended successfully");
-      setIsExtendOpen(false);
-      setExtendNotes("");
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to extend membership");
+    } finally {
+      setIsExtendOpen(false);
+      setExtendNotes("");
     }
   };
 
@@ -153,12 +154,13 @@ function ViewMemberPanel({
         notes: renewNotes
       });
       notify.success("Membership renewed successfully");
-      setIsRenewOpen(false);
-      setRenewNotes("");
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to renew membership");
+    } finally {
+      setIsRenewOpen(false);
+      setRenewNotes("");
     }
   };
 
@@ -170,12 +172,13 @@ function ViewMemberPanel({
     try {
       await memberService.upgradeMembership(currentMember.active_membership.id, upgradePlanId, upgradeNotes);
       notify.success("Plan changed successfully");
-      setIsUpgradeOpen(false);
-      setUpgradeNotes("");
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to change membership plan");
+    } finally {
+      setIsUpgradeOpen(false);
+      setUpgradeNotes("");
     }
   };
 
@@ -187,12 +190,13 @@ function ViewMemberPanel({
     try {
       await memberService.freezeMembership(currentMember.active_membership.id, freezeNotes);
       notify.success("Membership frozen successfully");
-      setIsFreezeConfirmOpen(false);
-      setFreezeNotes("");
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to freeze membership");
+    } finally {
+      setIsFreezeConfirmOpen(false);
+      setFreezeNotes("");
     }
   };
 
@@ -219,12 +223,13 @@ function ViewMemberPanel({
     try {
       await memberService.cancelMembership(currentMember.active_membership.id, cancelNotes);
       notify.success("Membership cancelled successfully");
-      setIsCancelConfirmOpen(false);
-      setCancelNotes("");
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to cancel membership");
+    } finally {
+      setIsCancelConfirmOpen(false);
+      setCancelNotes("");
     }
   };
 
@@ -232,11 +237,12 @@ function ViewMemberPanel({
     try {
       await memberService.updateMember(currentMember.id, { trainer_id: assignTrainerId || undefined });
       notify.success("Trainer assignment updated successfully");
-      setIsTrainerAssignOpen(false);
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
       notify.error(err?.message || "Failed to update trainer assignment");
+    } finally {
+      setIsTrainerAssignOpen(false);
     }
   };
 
@@ -861,35 +867,6 @@ function ViewMemberPanel({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">{title}</p>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-white/5">
-      <span className="text-[11px] text-slate-500 font-semibold">{label}</span>
-      <span
-        className={`text-[11px] text-white font-bold ${mono ? "font-mono text-[10px]" : ""}`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────
 // Main component

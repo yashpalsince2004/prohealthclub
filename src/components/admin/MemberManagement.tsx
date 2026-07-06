@@ -4,7 +4,7 @@ import {
   UserPlus, Upload, Download, MapPin, Phone, Mail, Award, Activity,
   Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye, Sliders
 } from "lucide-react";
-import { memberService, Member } from "../../lib/memberService";
+import { memberService, Member, sanitizePayload, MemberCreatePayload, MemberUpdatePayload } from "../../lib/memberService";
 import { notify } from "../../lib/notify";
 import { api } from "../../lib/api";
 import { Button } from "../ui/button";
@@ -63,6 +63,7 @@ export default function MemberManagement() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Bulk dialog triggers
   const [isBulkTrainerOpen, setIsBulkTrainerOpen] = useState(false);
@@ -423,20 +424,46 @@ export default function MemberManagement() {
       return;
     }
 
+    setSubmitting(true);
     try {
-      await memberService.createMember(data);
+      const sanitized = sanitizePayload(data) as MemberCreatePayload;
+      await memberService.createMember(sanitized);
       notify.success("New member added successfully");
       setIsCreateOpen(false);
       loadData();
     } catch (err: any) {
-      notify.error(err?.message || "Failed to create new member record");
+      if (err.code === "VALIDATION_ERROR" && Array.isArray(err.details)) {
+        err.details.forEach((detail: any) => {
+          const rawField = detail.field || "";
+          const cleanField = rawField.replace(/^body\s*->\s*/, "");
+          if (cleanField === "height") {
+            notify.error("Height must be a number.");
+          } else if (cleanField === "weight") {
+            notify.error("Weight must be a number.");
+          } else if (cleanField === "gender") {
+            notify.error("Gender must be Male, Female or Other.");
+          } else if (cleanField === "date_of_birth") {
+            notify.error("Date of birth is invalid.");
+          } else {
+            const fieldName = cleanField.charAt(0).toUpperCase() + cleanField.slice(1).replace(/_/g, " ");
+            notify.error(`${fieldName}: ${detail.message}`);
+          }
+        });
+      } else {
+        notify.error(err?.message || "Failed to create new member record");
+        setIsCreateOpen(false);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const onEditSubmit = async (data: any) => {
     if (!activeMember) return;
+    setSubmitting(true);
     try {
-      await memberService.updateMember(activeMember.id, data);
+      const sanitized = sanitizePayload(data) as MemberUpdatePayload;
+      await memberService.updateMember(activeMember.id, sanitized);
       notify.success("Member record updated successfully");
       setIsEditOpen(false);
       
@@ -445,14 +472,36 @@ export default function MemberManagement() {
         ...prev,
         profile: {
           ...prev.profile,
-          ...data
+          ...sanitized
         },
-        notes: data.notes
+        notes: sanitized.notes || prev.notes
       } : null);
 
       loadData();
     } catch (err: any) {
-      notify.error(err?.message || "Failed to edit member profile");
+      if (err.code === "VALIDATION_ERROR" && Array.isArray(err.details)) {
+        err.details.forEach((detail: any) => {
+          const rawField = detail.field || "";
+          const cleanField = rawField.replace(/^body\s*->\s*/, "");
+          if (cleanField === "height") {
+            notify.error("Height must be a number.");
+          } else if (cleanField === "weight") {
+            notify.error("Weight must be a number.");
+          } else if (cleanField === "gender") {
+            notify.error("Gender must be Male, Female or Other.");
+          } else if (cleanField === "date_of_birth") {
+            notify.error("Date of birth is invalid.");
+          } else {
+            const fieldName = cleanField.charAt(0).toUpperCase() + cleanField.slice(1).replace(/_/g, " ");
+            notify.error(`${fieldName}: ${detail.message}`);
+          }
+        });
+      } else {
+        notify.error(err?.message || "Failed to edit member profile");
+        setIsEditOpen(false);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -461,12 +510,13 @@ export default function MemberManagement() {
     try {
       await memberService.archiveMember(activeMember.id);
       notify.success("Member archived successfully");
-      setIsArchiveOpen(false);
-      setIsViewOpen(false);
-      setActiveMember(null);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Failed to archive member account");
+    } finally {
+      setIsArchiveOpen(false);
+      setIsViewOpen(false);
+      setActiveMember(null);
     }
   };
 
@@ -475,12 +525,13 @@ export default function MemberManagement() {
     try {
       await memberService.restoreMember(activeMember.id);
       notify.success("Member restored successfully");
-      setIsRestoreOpen(false);
-      setIsViewOpen(false);
-      setActiveMember(null);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Failed to restore member");
+    } finally {
+      setIsRestoreOpen(false);
+      setIsViewOpen(false);
+      setActiveMember(null);
     }
   };
 
@@ -493,14 +544,15 @@ export default function MemberManagement() {
     try {
       await memberService.extendMembership(activeMember.active_membership.id, extendDays, extendNotes);
       notify.success("Membership extended successfully");
-      setIsExtendOpen(false);
-      setExtendNotes("");
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to extend membership");
+    } finally {
+      setIsExtendOpen(false);
+      setExtendNotes("");
     }
   };
 
@@ -516,14 +568,15 @@ export default function MemberManagement() {
         notes: renewNotes
       });
       notify.success("Membership renewed successfully");
-      setIsRenewOpen(false);
-      setRenewNotes("");
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to renew membership");
+    } finally {
+      setIsRenewOpen(false);
+      setRenewNotes("");
     }
   };
 
@@ -535,14 +588,15 @@ export default function MemberManagement() {
     try {
       await memberService.upgradeMembership(activeMember.active_membership.id, upgradePlanId, upgradeNotes);
       notify.success("Plan changed successfully");
-      setIsUpgradeOpen(false);
-      setUpgradeNotes("");
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to update membership plan");
+    } finally {
+      setIsUpgradeOpen(false);
+      setUpgradeNotes("");
     }
   };
 
@@ -554,14 +608,15 @@ export default function MemberManagement() {
     try {
       await memberService.freezeMembership(activeMember.active_membership.id, freezeNotes);
       notify.success("Membership frozen successfully");
-      setIsFreezeConfirmOpen(false);
-      setFreezeNotes("");
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to freeze membership");
+    } finally {
+      setIsFreezeConfirmOpen(false);
+      setFreezeNotes("");
     }
   };
 
@@ -590,14 +645,15 @@ export default function MemberManagement() {
     try {
       await memberService.cancelMembership(activeMember.active_membership.id, cancelNotes);
       notify.success("Membership cancelled successfully");
-      setIsCancelConfirmOpen(false);
-      setCancelNotes("");
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to cancel membership");
+    } finally {
+      setIsCancelConfirmOpen(false);
+      setCancelNotes("");
     }
   };
 
@@ -606,13 +662,14 @@ export default function MemberManagement() {
     try {
       await memberService.updateMember(activeMember.id, { trainer_id: assignTrainerId || undefined });
       notify.success("Trainer assignment updated successfully");
-      setIsTrainerAssignOpen(false);
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to update trainer assignment");
+    } finally {
+      setIsTrainerAssignOpen(false);
     }
   };
 
@@ -646,12 +703,13 @@ export default function MemberManagement() {
     try {
       await memberService.bulkAssignTrainer(selectedIds, bulkTrainerId);
       notify.success("Trainer assigned to selected members successfully");
-      setIsBulkTrainerOpen(false);
-      setBulkTrainerId("");
-      setSelectedIds([]);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Bulk trainer allocation failed");
+    } finally {
+      setIsBulkTrainerOpen(false);
+      setBulkTrainerId("");
+      setSelectedIds([]);
     }
   };
 
@@ -660,12 +718,13 @@ export default function MemberManagement() {
     try {
       await memberService.bulkChangePlan(selectedIds, bulkPlanId);
       notify.success("Plan updated for selected members successfully");
-      setIsBulkPlanOpen(false);
-      setBulkPlanId("");
-      setSelectedIds([]);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Bulk plan assignment failed");
+    } finally {
+      setIsBulkPlanOpen(false);
+      setBulkPlanId("");
+      setSelectedIds([]);
     }
   };
 
@@ -743,12 +802,13 @@ export default function MemberManagement() {
         });
       }
       notify.success("Import complete successfully!");
-      setIsImportOpen(false);
-      setCsvFile(null);
-      setImportPreview([]);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Error occurred during CSV upload parsing");
+    } finally {
+      setIsImportOpen(false);
+      setCsvFile(null);
+      setImportPreview([]);
     }
   };
 
@@ -1639,13 +1699,14 @@ export default function MemberManagement() {
             fields={createFields}
             onSubmit={onCreateSubmit}
             submitLabel="Create Member"
+            loading={submitting}
             defaultValues={{
               joining_date: new Date().toISOString().split("T")[0]
             }}
           />
         </DialogContent>
       </Dialog>
-
+ 
       {/* DIALOG 3: EDIT MEMBER */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-2xl bg-[#121212] border border-white/5 text-white rounded-3xl p-6 overflow-y-auto max-h-[90vh]">
@@ -1655,12 +1716,13 @@ export default function MemberManagement() {
               Update member profile parameters, emergency contact details, plan adjustments, or notes.
             </DialogDescription>
           </DialogHeader>
-
+ 
           {activeMember && (
             <CrudForm
               fields={editFields}
               onSubmit={onEditSubmit}
               submitLabel="Save Changes"
+              loading={submitting}
               defaultValues={{
                 full_name: activeMember.profile?.full_name || "",
                 email: activeMember.profile?.email || "",
