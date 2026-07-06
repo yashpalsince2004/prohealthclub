@@ -134,6 +134,15 @@ export default function AddMemberForm({
         toast.error("Please enter a valid email address.");
         return;
       }
+      const phoneRe = /^[0-9]{10}$/;
+      if (!phoneRe.test(phone.trim())) {
+        toast.error("Phone number must be exactly 10 digits.");
+        return;
+      }
+      if (emergencyPhone.trim() && !phoneRe.test(emergencyPhone.trim())) {
+        toast.error("Emergency contact phone number must be exactly 10 digits.");
+        return;
+      }
       setCurrentStep(2);
     } else if (currentStep === 2) {
       setCurrentStep(3);

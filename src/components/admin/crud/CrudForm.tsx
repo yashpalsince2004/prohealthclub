@@ -66,6 +66,36 @@ export default function CrudForm({
     defaultValues
   });
 
+  const getRegisterOptions = (field: FormFieldConfig) => {
+    const options: any = {
+      required: field.required ? "This field is required" : false
+    };
+
+    if (field.type === "email") {
+      if (field.required) {
+        options.pattern = {
+          value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+          message: "Invalid email address format"
+        };
+      } else {
+        options.validate = (value: string) => 
+          !value || /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) || "Invalid email address format";
+      }
+    } else if (field.type === "phone") {
+      if (field.required) {
+        options.pattern = {
+          value: /^[0-9]{10}$/,
+          message: "Phone number must be exactly 10 digits"
+        };
+      } else {
+        options.validate = (value: string) => 
+          !value || /^[0-9]{10}$/.test(value) || "Phone number must be exactly 10 digits";
+      }
+    }
+
+    return options;
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 animate-in fade-in duration-200">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -96,7 +126,7 @@ export default function CrudForm({
                 field.type === "date") && (
                 <Input
                   type={field.type}
-                  {...register(field.name, { required: field.required })}
+                  {...register(field.name, getRegisterOptions(field))}
                   placeholder={field.placeholder}
                   disabled={loading}
                   className={`h-10 border-white/5 bg-black/40 rounded-xl text-xs text-white placeholder:text-slate-700 focus-visible:ring-1 focus-visible:ring-[#FF6B00] ${
@@ -112,7 +142,7 @@ export default function CrudForm({
                   <Input
                     type="number"
                     step="0.01"
-                    {...register(field.name, { required: field.required })}
+                    {...register(field.name, getRegisterOptions(field))}
                     placeholder={field.placeholder || "0.00"}
                     disabled={loading}
                     className={`h-10 pl-7 border-white/5 bg-black/40 rounded-xl text-xs text-white placeholder:text-slate-700 focus-visible:ring-1 focus-visible:ring-[#FF6B00] ${
@@ -128,7 +158,7 @@ export default function CrudForm({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">+91</span>
                   <Input
                     type="tel"
-                    {...register(field.name, { required: field.required })}
+                    {...register(field.name, getRegisterOptions(field))}
                     placeholder={field.placeholder || "99999 88888"}
                     disabled={loading}
                     className={`h-10 pl-11 border-white/5 bg-black/40 rounded-xl text-xs text-white placeholder:text-slate-700 focus-visible:ring-1 focus-visible:ring-[#FF6B00] ${
@@ -141,7 +171,7 @@ export default function CrudForm({
               {/* Textarea */}
               {field.type === "textarea" && (
                 <Textarea
-                  {...register(field.name, { required: field.required })}
+                  {...register(field.name, getRegisterOptions(field))}
                   placeholder={field.placeholder}
                   disabled={loading}
                   className={`min-h-20 border-white/5 bg-black/40 rounded-xl text-xs text-white placeholder:text-slate-700 focus-visible:ring-1 focus-visible:ring-[#FF6B00] ${
@@ -153,7 +183,7 @@ export default function CrudForm({
               {/* Select */}
               {field.type === "select" && (
                 <select
-                  {...register(field.name, { required: field.required })}
+                  {...register(field.name, getRegisterOptions(field))}
                   disabled={loading}
                   className={`w-full h-10 bg-[#121212] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00] ${
                     hasError ? "border-red-500/50" : ""
@@ -173,7 +203,7 @@ export default function CrudForm({
                 <Controller
                   name={field.name}
                   control={control}
-                  rules={{ required: field.required }}
+                  rules={getRegisterOptions(field)}
                   render={({ field: { value = [], onChange } }) => (
                     <div className="space-y-2">
                       <select
