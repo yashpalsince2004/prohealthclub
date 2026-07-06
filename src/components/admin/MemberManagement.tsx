@@ -99,6 +99,7 @@ export default function MemberManagement() {
 
   const [isTrainerAssignOpen, setIsTrainerAssignOpen] = useState(false);
   const [assignTrainerId, setAssignTrainerId] = useState("");
+  const [isMembershipActionsOpen, setIsMembershipActionsOpen] = useState(false);
 
   // Options cache
   const [trainers, setTrainers] = useState<any[]>([]);
@@ -420,6 +421,11 @@ export default function MemberManagement() {
   const handleEdit = (member: Member) => {
     setActiveMember(member);
     setIsEditOpen(true);
+  };
+
+  const handleMembershipClick = (member: Member) => {
+    setActiveMember(member);
+    setIsMembershipActionsOpen(true);
   };
 
   const handleArchiveClick = (member: Member) => {
@@ -867,6 +873,7 @@ export default function MemberManagement() {
     if (filters.show_archived) {
       list.push({ label: "Restore Account", action: handleRestoreClick, className: "text-blue-500" });
     } else {
+      list.push({ label: "Membership", action: handleMembershipClick });
       list.push({ label: "Archive Member", action: handleArchiveClick, className: "text-red-500" });
     }
 
@@ -1416,6 +1423,170 @@ export default function MemberManagement() {
       </Sheet>
 
       {/* SUB-MODALS FOR MEMBERSHIP CONTROLS */}
+      {/* 0. MANAGE MEMBERSHIP DASHBOARD */}
+      <Dialog open={isMembershipActionsOpen} onOpenChange={setIsMembershipActionsOpen}>
+        <DialogContent className="max-w-md bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+              <Award className="text-[#FF6B00]" size={16} /> Manage Membership
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Update, extend, renew, freeze or cancel subscription details for {activeMember?.profile?.full_name || "Member"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeMember && (
+            <div className="py-4 space-y-5 text-left">
+              {/* Membership status card */}
+              <div className="bg-black/30 border border-white/5 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Current Plan</span>
+                  <span className="text-xs font-bold text-white">
+                    {activeMember.active_membership?.plan_name || "No Active Plan"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Status</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider mt-1 ${
+                      activeMember.active_membership?.status === "active" 
+                        ? "bg-green-500/10 text-green-500 border border-green-500/20" 
+                        : "bg-red-500/10 text-red-500 border border-red-500/20"
+                    }`}>
+                      {activeMember.active_membership?.status || "Inactive"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Days Remaining</span>
+                    <span className="font-bold text-white block mt-1">
+                      {activeMember.active_membership?.days_remaining !== undefined 
+                        ? `${activeMember.active_membership.days_remaining} Days` 
+                        : "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Start Date</span>
+                    <span className="font-medium text-slate-300 block mt-0.5">
+                      {activeMember.active_membership?.start_date || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Expiry Date</span>
+                    <span className="font-medium text-slate-300 block mt-0.5">
+                      {activeMember.active_membership?.end_date || "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons list */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Select Action</Label>
+                
+                {activeMember.active_membership ? (
+                  <>
+                    <Button
+                      onClick={() => {
+                        setRenewPlanId(activeMember.active_membership?.plan_id || "");
+                        setIsRenewOpen(true);
+                        setIsMembershipActionsOpen(false);
+                      }}
+                      className="w-full h-10 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 border border-[#FF6B00]/20 text-[#FF6B00] text-xs font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      🔄 Renew Membership
+                    </Button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={() => {
+                          setIsExtendOpen(true);
+                          setIsMembershipActionsOpen(false);
+                        }}
+                        className="h-10 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl flex items-center justify-center gap-1.5"
+                      >
+                        📅 Extend Date
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          setUpgradePlanId(activeMember.active_membership?.plan_id || "");
+                          setIsUpgradeOpen(true);
+                          setIsMembershipActionsOpen(false);
+                        }}
+                        className="h-10 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl flex items-center justify-center gap-1.5"
+                      >
+                        🏅 Change Plan
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {activeMember.active_membership.status === "frozen" ? (
+                        <Button
+                          onClick={async () => {
+                            try {
+                              await memberService.unfreezeMembership(activeMember.active_membership!.id);
+                              notify.success("Membership resumed successfully");
+                              loadData();
+                              setIsMembershipActionsOpen(false);
+                            } catch (err: any) {
+                              notify.error(err?.message || "Failed to resume membership");
+                            }
+                          }}
+                          className="h-10 bg-green-900/20 hover:bg-green-900/30 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5"
+                        >
+                          ▶️ Resume
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => {
+                            setIsFreezeConfirmOpen(true);
+                            setIsMembershipActionsOpen(false);
+                          }}
+                          className="h-10 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl flex items-center justify-center gap-1.5"
+                        >
+                          ❄️ Freeze Plan
+                        </Button>
+                      )}
+
+                      <Button
+                        onClick={() => {
+                          setIsCancelConfirmOpen(true);
+                          setIsMembershipActionsOpen(false);
+                        }}
+                        className="h-10 bg-red-950/20 hover:bg-red-950/30 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5"
+                      >
+                        ❌ Terminate Plan
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-xs text-slate-500 mb-3">This member currently has no active membership plan.</p>
+                    <Button
+                      onClick={() => {
+                        setIsEditOpen(true);
+                        setIsMembershipActionsOpen(false);
+                      }}
+                      className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white text-xs font-black uppercase tracking-wider rounded-xl px-4"
+                    >
+                      Assign Membership Plan
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              onClick={() => setIsMembershipActionsOpen(false)}
+              className="w-full h-10 bg-[#171717] border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 1. EXTEND MEMBERSHIP */}
       <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
         <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
