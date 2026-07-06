@@ -45,6 +45,7 @@ export interface ActiveMembershipSummary {
   status: MembershipStatus;
   days_remaining: number;
   auto_renew?: boolean;
+  plan_id?: string;
 }
 
 export interface TrainerSummary {

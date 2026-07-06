@@ -143,8 +143,7 @@ function ViewMemberPanel({
     isUpgradeOpen,
     isFreezeConfirmOpen,
     isCancelConfirmOpen,
-    isTrainerAssignOpen,
-    isAddOpen
+    isTrainerAssignOpen
   ]);
 
   const handleExtendSubmit = async () => {
@@ -906,6 +905,21 @@ export default function MembersTable({ onSelectMember }: MembersTableProps) {
   // Dialogs
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [viewMember, setViewMember] = useState<MemberResponse | null>(null);
+
+  // Prevent Radix UI from locking body clickability after dialogs/sheets close
+  useEffect(() => {
+    const unlock = () => {
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+    };
+    unlock();
+    const timer = setTimeout(unlock, 100);
+    const timer2 = setTimeout(unlock, 300);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [isAddOpen, viewMember]);
 
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
