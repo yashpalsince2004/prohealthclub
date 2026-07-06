@@ -341,37 +341,54 @@ export default function MemberManagement() {
     { name: "notes", label: "General Administrative Notes", type: "textarea", placeholder: "Health risks, dietary notes..." }
   ], [plans, trainers]);
 
-  const editFields: FormFieldConfig[] = useMemo(() => [
-    { name: "full_name", label: "Full Name", type: "text", required: true },
-    { name: "email", label: "Email Address", type: "email", required: true },
-    { name: "phone", label: "Phone Number", type: "phone", required: true },
-    { name: "date_of_birth", label: "Date of Birth", type: "date" },
-    {
-      name: "gender",
-      label: "Gender",
-      type: "select",
-      options: [
-        { label: "Male", value: "male" },
-        { label: "Female", value: "female" },
-        { label: "Other", value: "other" }
-      ]
-    },
-    { name: "address", label: "Residential Address", type: "textarea" },
-    { name: "occupation", label: "Occupation / Profession", type: "text" },
-    { name: "height", label: "Height (cm)", type: "number" },
-    { name: "weight", label: "Weight (kg)", type: "number" },
-    { name: "medical_notes", label: "Medical Notes / Health Conditions", type: "textarea" },
-    { name: "emergency_contact_name", label: "Emergency Contact Name", type: "text" },
-    { name: "emergency_contact_phone", label: "Emergency Contact Phone", type: "phone" },
-    { name: "emergency_relation", label: "Emergency Contact Relation", type: "text" },
-    {
-      name: "trainer_id",
-      label: "Modify Trainer Assignment",
-      type: "select",
-      options: trainers.map((t) => ({ label: t.profile?.full_name || "Trainer", value: t.id }))
-    },
-    { name: "notes", label: "General Administrative Notes", type: "textarea" }
-  ], [plans, trainers]);
+  const editFields: FormFieldConfig[] = useMemo(() => {
+    const fields: FormFieldConfig[] = [
+      { name: "full_name", label: "Full Name", type: "text", required: true },
+      { name: "email", label: "Email Address", type: "email", required: true },
+      { name: "phone", label: "Phone Number", type: "phone", required: true },
+      { name: "date_of_birth", label: "Date of Birth", type: "date" },
+      {
+        name: "gender",
+        label: "Gender",
+        type: "select",
+        options: [
+          { label: "Male", value: "male" },
+          { label: "Female", value: "female" },
+          { label: "Other", value: "other" }
+        ]
+      },
+      { name: "address", label: "Residential Address", type: "textarea" },
+      { name: "occupation", label: "Occupation / Profession", type: "text" },
+      { name: "height", label: "Height (cm)", type: "number" },
+      { name: "weight", label: "Weight (kg)", type: "number" },
+      { name: "medical_notes", label: "Medical Notes / Health Conditions", type: "textarea" },
+      { name: "emergency_contact_name", label: "Emergency Contact Name", type: "text" },
+      { name: "emergency_contact_phone", label: "Emergency Contact Phone", type: "phone" },
+      { name: "emergency_relation", label: "Emergency Contact Relation", type: "text" },
+    ];
+
+    if (!activeMember?.active_membership) {
+      fields.push({
+        name: "plan_id",
+        label: "Assign Membership Plan",
+        type: "select",
+        options: plans.map((p) => ({ label: `${p.name} - ₹${p.price}`, value: p.id })),
+        required: true
+      });
+    }
+
+    fields.push(
+      {
+        name: "trainer_id",
+        label: "Modify Trainer Assignment",
+        type: "select",
+        options: trainers.map((t) => ({ label: t.profile?.full_name || "Trainer", value: t.id }))
+      },
+      { name: "notes", label: "General Administrative Notes", type: "textarea" }
+    );
+
+    return fields;
+  }, [plans, trainers, activeMember]);
 
   const filterConfigs = useMemo(() => [
     {
@@ -1923,6 +1940,7 @@ export default function MemberManagement() {
                 emergency_contact_name: activeMember.profile?.emergency_contact_name || "",
                 emergency_contact_phone: activeMember.profile?.emergency_contact_phone || "",
                 emergency_relation: activeMember.profile?.emergency_relation || "",
+                plan_id: activeMember.active_membership?.plan_id || "",
                 trainer_id: activeMember.assigned_trainer?.id || "",
                 notes: activeMember.notes || ""
               }}

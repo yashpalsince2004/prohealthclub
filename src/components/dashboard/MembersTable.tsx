@@ -165,21 +165,22 @@ function ViewMemberPanel({
   };
 
   const handleRenewSubmit = async () => {
-    if (!currentMember?.active_membership) {
-      notify.error("Active membership not found");
-      return;
-    }
     try {
-      await memberService.renewMembership(currentMember.active_membership.id, {
-        plan_id: renewPlanId,
-        start_from_expiry: renewStartFromExpiry,
-        notes: renewNotes
-      });
-      notify.success("Membership renewed successfully");
+      if (!currentMember?.active_membership) {
+        await memberService.updateMember(currentMember.id, { plan_id: renewPlanId });
+        notify.success("Membership subscribed successfully");
+      } else {
+        await memberService.renewMembership(currentMember.active_membership.id, {
+          plan_id: renewPlanId,
+          start_from_expiry: renewStartFromExpiry,
+          notes: renewNotes
+        });
+        notify.success("Membership renewed successfully");
+      }
       loadMemberDetails();
       onRefreshList?.();
     } catch (err: any) {
-      notify.error(err?.message || "Failed to renew membership");
+      notify.error(err?.message || "Failed to update membership");
     } finally {
       setIsRenewOpen(false);
       setRenewNotes("");
