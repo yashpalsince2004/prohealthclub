@@ -1065,6 +1065,20 @@ export default function MemberManagement() {
           onSelectionChange={setSelectedIds}
           rowActions={rowActionsList}
           onRefresh={loadData}
+          filterElement={
+            <select
+              value={filters.plan_id || ""}
+              onChange={(e) => setFilters(prev => ({ ...prev, plan_id: e.target.value }))}
+              className="h-9 px-3 rounded-xl border border-white/5 bg-[#171717] hover:bg-white/5 text-slate-300 hover:text-white text-[10px] font-bold uppercase tracking-wider focus:outline-none cursor-pointer"
+            >
+              <option value="">All Plans</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          }
           emptyState={
             <BaseEmptyState
               title="No Members Found"

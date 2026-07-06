@@ -21,6 +21,7 @@ interface DataTableProps {
   data: any[];
   columns: ColumnConfig[];
   loading?: boolean;
+  filterElement?: React.ReactNode;
   
   // Pagination
   page: number;
@@ -55,6 +56,7 @@ export default function DataTable({
   data,
   columns,
   loading = false,
+  filterElement,
   page,
   perPage,
   totalCount,
@@ -123,6 +125,7 @@ export default function DataTable({
           Showing {data.length} of {totalCount} records
         </span>
         <div className="flex items-center gap-2">
+          {filterElement}
           {/* Column visibility dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
