@@ -765,11 +765,9 @@ export default function MemberManagement() {
     notify.success(`Exported members list as ${format.toUpperCase()}`);
   };
 
-  // Row action context logic
   const rowActionsList = useMemo(() => {
     const list = [
-      { label: "View Details", action: handleView },
-      { label: "Edit Profile", action: handleEdit }
+      { label: "Edit Profile", action: handleView }
     ];
 
     if (filters.show_archived) {
