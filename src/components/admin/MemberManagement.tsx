@@ -100,6 +100,9 @@ export default function MemberManagement() {
   const [isTrainerAssignOpen, setIsTrainerAssignOpen] = useState(false);
   const [assignTrainerId, setAssignTrainerId] = useState("");
   const [isMembershipActionsOpen, setIsMembershipActionsOpen] = useState(false);
+  const [isAssignPlanOpen, setIsAssignPlanOpen] = useState(false);
+  const [assignPlanId, setAssignPlanId] = useState("");
+  const [assignPlanNotes, setAssignPlanNotes] = useState("");
 
   // Options cache
   const [trainers, setTrainers] = useState<any[]>([]);
@@ -203,7 +206,7 @@ export default function MemberManagement() {
       clearTimeout(timer);
       clearTimeout(timer2);
     };
-  }, [isCreateOpen, isEditOpen, isArchiveOpen, isRestoreOpen, isViewOpen]);
+  }, [isCreateOpen, isEditOpen, isArchiveOpen, isRestoreOpen, isViewOpen, isAssignPlanOpen, isMembershipActionsOpen]);
 
   // Columns definition mapping for DataTable
   const columns = useMemo(() => [
@@ -341,54 +344,37 @@ export default function MemberManagement() {
     { name: "notes", label: "General Administrative Notes", type: "textarea", placeholder: "Health risks, dietary notes..." }
   ], [plans, trainers]);
 
-  const editFields: FormFieldConfig[] = useMemo(() => {
-    const fields: FormFieldConfig[] = [
-      { name: "full_name", label: "Full Name", type: "text", required: true },
-      { name: "email", label: "Email Address", type: "email", required: true },
-      { name: "phone", label: "Phone Number", type: "phone", required: true },
-      { name: "date_of_birth", label: "Date of Birth", type: "date" },
-      {
-        name: "gender",
-        label: "Gender",
-        type: "select",
-        options: [
-          { label: "Male", value: "male" },
-          { label: "Female", value: "female" },
-          { label: "Other", value: "other" }
-        ]
-      },
-      { name: "address", label: "Residential Address", type: "textarea" },
-      { name: "occupation", label: "Occupation / Profession", type: "text" },
-      { name: "height", label: "Height (cm)", type: "number" },
-      { name: "weight", label: "Weight (kg)", type: "number" },
-      { name: "medical_notes", label: "Medical Notes / Health Conditions", type: "textarea" },
-      { name: "emergency_contact_name", label: "Emergency Contact Name", type: "text" },
-      { name: "emergency_contact_phone", label: "Emergency Contact Phone", type: "phone" },
-      { name: "emergency_relation", label: "Emergency Contact Relation", type: "text" },
-    ];
-
-    if (!activeMember?.active_membership) {
-      fields.push({
-        name: "plan_id",
-        label: "Assign Membership Plan",
-        type: "select",
-        options: plans.map((p) => ({ label: `${p.name} - ₹${p.price}`, value: p.id })),
-        required: true
-      });
-    }
-
-    fields.push(
-      {
-        name: "trainer_id",
-        label: "Modify Trainer Assignment",
-        type: "select",
-        options: trainers.map((t) => ({ label: t.profile?.full_name || "Trainer", value: t.id }))
-      },
-      { name: "notes", label: "General Administrative Notes", type: "textarea" }
-    );
-
-    return fields;
-  }, [plans, trainers, activeMember]);
+  const editFields: FormFieldConfig[] = useMemo(() => [
+    { name: "full_name", label: "Full Name", type: "text", required: true },
+    { name: "email", label: "Email Address", type: "email", required: true },
+    { name: "phone", label: "Phone Number", type: "phone", required: true },
+    { name: "date_of_birth", label: "Date of Birth", type: "date" },
+    {
+      name: "gender",
+      label: "Gender",
+      type: "select",
+      options: [
+        { label: "Male", value: "male" },
+        { label: "Female", value: "female" },
+        { label: "Other", value: "other" }
+      ]
+    },
+    { name: "address", label: "Residential Address", type: "textarea" },
+    { name: "occupation", label: "Occupation / Profession", type: "text" },
+    { name: "height", label: "Height (cm)", type: "number" },
+    { name: "weight", label: "Weight (kg)", type: "number" },
+    { name: "medical_notes", label: "Medical Notes / Health Conditions", type: "textarea" },
+    { name: "emergency_contact_name", label: "Emergency Contact Name", type: "text" },
+    { name: "emergency_contact_phone", label: "Emergency Contact Phone", type: "phone" },
+    { name: "emergency_relation", label: "Emergency Contact Relation", type: "text" },
+    {
+      name: "trainer_id",
+      label: "Modify Trainer Assignment",
+      type: "select",
+      options: trainers.map((t) => ({ label: t.profile?.full_name || "Trainer", value: t.id }))
+    },
+    { name: "notes", label: "General Administrative Notes", type: "textarea" }
+  ], [plans, trainers]);
 
   const filterConfigs = useMemo(() => [
     {
@@ -615,6 +601,23 @@ export default function MemberManagement() {
     } finally {
       setIsRenewOpen(false);
       setRenewNotes("");
+    }
+  };
+
+  const handleAssignPlanSubmit = async () => {
+    if (!activeMember) return;
+    try {
+      await memberService.updateMember(activeMember.id, { plan_id: assignPlanId });
+      notify.success("Membership plan assigned successfully");
+      loadData();
+      const updated = await memberService.getMemberById(activeMember.id);
+      setActiveMember(updated);
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to assign membership plan");
+    } finally {
+      setIsAssignPlanOpen(false);
+      setAssignPlanId("");
+      setAssignPlanNotes("");
     }
   };
 
@@ -1581,7 +1584,8 @@ export default function MemberManagement() {
                     <p className="text-xs text-slate-500 mb-3">This member currently has no active membership plan.</p>
                     <Button
                       onClick={() => {
-                        setIsEditOpen(true);
+                        setAssignPlanId("");
+                        setIsAssignPlanOpen(true);
                         setIsMembershipActionsOpen(false);
                       }}
                       className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white text-xs font-black uppercase tracking-wider rounded-xl px-4"
@@ -1649,6 +1653,50 @@ export default function MemberManagement() {
               className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-45"
             >
               Extend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ASSIGN MEMBERSHIP PLAN */}
+      <Dialog open={isAssignPlanOpen} onOpenChange={setIsAssignPlanOpen}>
+        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><RefreshCw size={14} className="text-[#FF6B00]" /> Assign Membership Plan</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-semibold">
+              Select a membership plan to assign to this member.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-left">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Plan</Label>
+              <select
+                value={assignPlanId}
+                onChange={(e) => setAssignPlanId(e.target.value)}
+                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+              >
+                <option value="">Select Plan...</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} - ₹{p.price}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
+            <Button
+              type="button"
+              onClick={() => setIsAssignPlanOpen(false)}
+              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAssignPlanSubmit}
+              disabled={!assignPlanId}
+              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-45"
+            >
+              Assign
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1940,7 +1988,6 @@ export default function MemberManagement() {
                 emergency_contact_name: activeMember.profile?.emergency_contact_name || "",
                 emergency_contact_phone: activeMember.profile?.emergency_contact_phone || "",
                 emergency_relation: activeMember.profile?.emergency_relation || "",
-                plan_id: activeMember.active_membership?.plan_id || "",
                 trainer_id: activeMember.assigned_trainer?.id || "",
                 notes: activeMember.notes || ""
               }}
