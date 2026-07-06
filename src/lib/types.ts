@@ -44,6 +44,7 @@ export interface ActiveMembershipSummary {
   end_date: string;
   status: MembershipStatus;
   days_remaining: number;
+  auto_renew?: boolean;
 }
 
 export interface MemberResponse {

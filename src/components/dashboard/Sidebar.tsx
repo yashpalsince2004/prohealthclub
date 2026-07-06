@@ -27,8 +27,34 @@ import { useAuth } from "../../hooks/useAuth";
 
 type UserRole = "admin" | "receptionist" | "trainer" | "member";
 
+export type SidebarTab =
+  | "dashboard"
+  | "receptionists"
+  | "trainers"
+  | "members"
+  | "memberships"
+  | "attendance"
+  | "revenue"
+  | "leads"
+  | "reports"
+  | "analytics"
+  | "plans"
+  | "exercises"
+  | "settings"
+  | "profile"
+  | "billing"
+  | "biometrics"
+  | "renewals"
+  | "workouts"
+  | "diets"
+  | "membership"
+  | "workout"
+  | "diet"
+  | "payments"
+  | "inventory";
+
 interface NavItem {
-  id: string;
+  id: SidebarTab;
   label: string;
   href: string;
   icon: LucideIcon;
@@ -36,6 +62,7 @@ interface NavItem {
   badge?: number;
   group?: string;
 }
+
 
 const NAV_ITEMS: NavItem[] = [
   // Admin only
@@ -88,8 +115,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 interface SidebarProps {
-  currentTab?: string;
-  onChangeTab?: (tab: any) => void;
+  currentTab?: SidebarTab;
+  onChangeTab?: (tab: SidebarTab) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }

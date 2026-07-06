@@ -5,6 +5,7 @@ type PermissionMode = "hide" | "disable" | "readOnly";
 
 interface PermissionProps {
   roles?: string[];
+  allowedRoles?: string[];
   permissions?: string[];
   mode?: PermissionMode;
   children: React.ReactNode;
@@ -82,6 +83,7 @@ export function hasPermission(
 
 export default function Permission({
   roles,
+  allowedRoles,
   permissions,
   mode = "hide",
   children,
@@ -93,7 +95,7 @@ export default function Permission({
     return mode === "hide" ? (fallback as React.JSX.Element) : null;
   }
 
-  const allowed = hasPermission(user.role, roles, permissions);
+  const allowed = hasPermission(user.role, allowedRoles || roles, permissions);
 
   if (allowed) {
     return <>{children}</>;
@@ -109,15 +111,16 @@ export default function Permission({
       {React.Children.map(children, (child) => {
         if (!React.isValidElement(child)) return child;
         
+        const childProps = child.props as { className?: string };
         const extraProps: Record<string, any> = {};
         if (mode === "disable") {
           extraProps.disabled = true;
           extraProps["aria-disabled"] = "true";
           // Add opacity/pointer events tailwind style to represent disabled state
-          extraProps.className = `${child.props.className || ""} opacity-50 cursor-not-allowed pointer-events-none`;
+          extraProps.className = `${childProps.className || ""} opacity-50 cursor-not-allowed pointer-events-none`;
         } else if (mode === "readOnly") {
           extraProps.readOnly = true;
-          extraProps.className = `${child.props.className || ""} cursor-default focus:ring-0`;
+          extraProps.className = `${childProps.className || ""} cursor-default focus:ring-0`;
         }
 
         return React.cloneElement(child, extraProps);

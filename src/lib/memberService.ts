@@ -13,6 +13,11 @@ export interface ProfileData {
   emergency_contact_phone?: string;
   biometric_device_id?: number;
   email?: string;
+  emergency_relation?: string;
+  medical_notes?: string;
+  occupation?: string;
+  height?: number;
+  weight?: number;
 }
 
 export interface ActiveMembership {
@@ -22,6 +27,7 @@ export interface ActiveMembership {
   end_date: string;
   status: string;
   days_remaining: number;
+  auto_renew?: boolean;
 }
 
 export interface TrainerSummary {
@@ -79,6 +85,8 @@ export interface MemberUpdatePayload {
   notes?: string;
   is_active?: boolean;
   biometric_device_id?: number;
+  plan_id?: string;
+  trainer_id?: string;
 }
 
 export const memberService = {
@@ -198,6 +206,13 @@ export const memberService = {
 
   async extendMembership(membershipId: string, days: number, notes?: string): Promise<any> {
     return api.post<any>(`/api/v1/memberships/${membershipId}/extend`, { extend_days: days, notes });
+  },
+
+  async renewMembership(
+    membershipId: string,
+    payload: { plan_id: string; start_from_expiry: boolean; notes?: string }
+  ): Promise<any> {
+    return api.post<any>(`/api/v1/memberships/${membershipId}/renew`, payload);
   },
 
   async freezeMembership(membershipId: string, notes?: string): Promise<any> {

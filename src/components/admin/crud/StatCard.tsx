@@ -11,6 +11,7 @@ interface StatCardProps {
   comparisonText?: string;
   loading?: boolean;
   sparklineData?: number[];
+  color?: string;
 }
 
 export default function StatCard({
@@ -21,7 +22,8 @@ export default function StatCard({
   trendDirection = "up",
   comparisonText,
   loading = false,
-  sparklineData = [10, 20, 15, 30, 25, 40, 35, 50]
+  sparklineData = [10, 20, 15, 30, 25, 40, 35, 50],
+  color = "#FF6B00"
 }: StatCardProps) {
   if (loading) {
     return (
@@ -52,7 +54,10 @@ export default function StatCard({
   const isUp = trendDirection === "up" || (trend !== undefined && trend > 0);
 
   return (
-    <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl shadow-xl flex-1 flex items-center justify-between relative overflow-hidden group hover:border-white/10 transition-colors">
+    <div
+      className="bg-[#121212] border border-white/5 p-5 rounded-3xl shadow-xl flex-1 flex items-center justify-between relative overflow-hidden group hover:border-white/10 transition-colors"
+      style={{ "--hover-color": color } as React.CSSProperties}
+    >
       <div className="space-y-2 flex-1">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
@@ -86,7 +91,7 @@ export default function StatCard({
 
       <div className="flex flex-col items-end justify-between h-full gap-4 pl-4">
         {/* Top: Icon element */}
-        <div className="w-10 h-10 rounded-2xl bg-[#171717] border border-white/5 flex items-center justify-center text-slate-400 group-hover:text-[#FF6B00] transition-colors">
+        <div className="w-10 h-10 rounded-2xl bg-[#171717] border border-white/5 flex items-center justify-center text-slate-400 group-hover:text-[var(--hover-color)] transition-colors">
           <Icon size={18} />
         </div>
 

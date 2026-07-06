@@ -781,7 +781,11 @@ export default function MemberManagement() {
   };
 
   const rowActionsList = useMemo(() => {
-    const list = [
+    const list: {
+      label: string;
+      action: (member: Member) => void;
+      className?: string;
+    }[] = [
       { label: "Edit Profile", action: handleView }
     ];
 
@@ -856,7 +860,7 @@ export default function MemberManagement() {
             />
           </div>
           <Button
-            onClick={() => handleExport("xlsx")}
+            onClick={() => handleExport("excel")}
             variant="outline"
             className="h-11 rounded-2xl border-white/5 bg-[#121212] hover:bg-[#171717] text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 px-4 shadow-lg w-full md:w-auto shrink-0"
           >
@@ -1319,7 +1323,7 @@ export default function MemberManagement() {
                 </div>
 
                 {/* 8. AUDIT INFO */}
-                <AuditInfo createdAt={activeMember.joining_date} createdBy="Staff Account" />
+                <AuditInfo createdAt={activeMember.joining_date} createdByName="Staff Account" />
 
               </div>
             </div>
