@@ -63,7 +63,8 @@ export default function CrudForm({
     control,
     formState: { errors }
   } = useForm({
-    defaultValues
+    defaultValues,
+    mode: "onChange"
   });
 
   const getRegisterOptions = (field: FormFieldConfig) => {
@@ -85,11 +86,11 @@ export default function CrudForm({
       if (field.required) {
         options.pattern = {
           value: /^[0-9]{10}$/,
-          message: "Phone number must be exactly 10 digits"
+          message: "Please complete the 10-digit phone number"
         };
       } else {
         options.validate = (value: string) => 
-          !value || /^[0-9]{10}$/.test(value) || "Phone number must be exactly 10 digits";
+          !value || /^[0-9]{10}$/.test(value) || "Please complete the 10-digit phone number";
       }
     }
 
@@ -158,6 +159,10 @@ export default function CrudForm({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">+91</span>
                   <Input
                     type="tel"
+                    maxLength={10}
+                    onInput={(e) => {
+                      e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, "").slice(0, 10);
+                    }}
                     {...register(field.name, getRegisterOptions(field))}
                     placeholder={field.placeholder || "99999 88888"}
                     disabled={loading}

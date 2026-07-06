@@ -563,10 +563,16 @@ export default function AddMemberForm({
               <Field label="Phone *">
                 <Input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  maxLength={10}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
                   placeholder="10-digit number"
                   className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
                 />
+                {phone && phone.length < 10 && (
+                  <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
+                    Please complete the 10-digit phone number
+                  </p>
+                )}
               </Field>
               <Field label="Email *">
                 <Input
@@ -623,10 +629,16 @@ export default function AddMemberForm({
               <Field label="Emergency Contact Phone">
                 <Input
                   value={emergencyPhone}
-                  onChange={(e) => setEmergencyPhone(e.target.value)}
+                  maxLength={10}
+                  onChange={(e) => setEmergencyPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
                   placeholder="Phone number"
                   className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
                 />
+                {emergencyPhone && emergencyPhone.length < 10 && (
+                  <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
+                    Please complete the 10-digit phone number
+                  </p>
+                )}
               </Field>
             </div>
             <Field label="Medical Notes / Health Conditions">
