@@ -124,6 +124,29 @@ function ViewMemberPanel({
     fetchGlobals();
   }, []);
 
+  // Prevent Radix UI from locking body clickability after dialogs/sheets close
+  useEffect(() => {
+    const unlock = () => {
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+    };
+    unlock();
+    const timer = setTimeout(unlock, 100);
+    const timer2 = setTimeout(unlock, 300);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [
+    isExtendOpen,
+    isRenewOpen,
+    isUpgradeOpen,
+    isFreezeConfirmOpen,
+    isCancelConfirmOpen,
+    isTrainerAssignOpen,
+    isAddOpen
+  ]);
+
   const handleExtendSubmit = async () => {
     if (!currentMember?.active_membership) {
       notify.error("Active membership not found");
