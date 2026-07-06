@@ -194,7 +194,7 @@ export default function MemberManagement() {
       key: "avatar",
       header: "Avatar",
       render: (row: Member) => {
-        const initials = row.profile.full_name
+        const initials = (row.profile?.full_name || "")
           .split(" ")
           .map((n) => n[0])
           .join("")
@@ -202,10 +202,10 @@ export default function MemberManagement() {
           .toUpperCase();
         return (
           <div className="w-8 h-8 rounded-full border border-white/10 bg-black/40 overflow-hidden flex items-center justify-center text-[10px] font-black tracking-wider text-slate-400">
-            {row.profile.avatar_url ? (
+            {row.profile?.avatar_url ? (
               <img src={row.profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              initials
+              initials || "?"
             )}
           </div>
         );
@@ -222,17 +222,17 @@ export default function MemberManagement() {
       key: "full_name",
       header: "Full Name",
       sortable: true,
-      render: (row: Member) => <span className="font-bold text-white">{row.profile.full_name}</span>
+      render: (row: Member) => <span className="font-bold text-white">{row.profile?.full_name || "N/A"}</span>
     },
     {
       key: "phone",
       header: "Phone",
-      render: (row: Member) => <span className="text-slate-400">{row.profile.phone || "N/A"}</span>
+      render: (row: Member) => <span className="text-slate-400">{row.profile?.phone || "N/A"}</span>
     },
     {
       key: "email",
       header: "Email",
-      render: (row: Member) => <span className="text-slate-400">{row.profile.email || "N/A"}</span>
+      render: (row: Member) => <span className="text-slate-400">{row.profile?.email || "N/A"}</span>
     },
     {
       key: "plan",
@@ -319,7 +319,7 @@ export default function MemberManagement() {
       name: "trainer_id",
       label: "Assign Trainer (Optional)",
       type: "select",
-      options: trainers.map((t) => ({ label: `${t.profile.full_name} (${t.specialization || "General"})`, value: t.id }))
+      options: trainers.map((t) => ({ label: `${t.profile?.full_name || "Trainer"} (${t.specialization || "General"})`, value: t.id }))
     },
     { name: "notes", label: "General Administrative Notes", type: "textarea", placeholder: "Health risks, dietary notes..." }
   ], [plans, trainers]);
@@ -351,7 +351,7 @@ export default function MemberManagement() {
       name: "trainer_id",
       label: "Modify Trainer Assignment",
       type: "select",
-      options: trainers.map((t) => ({ label: t.profile.full_name, value: t.id }))
+      options: trainers.map((t) => ({ label: t.profile?.full_name || "Trainer", value: t.id }))
     },
     { name: "notes", label: "General Administrative Notes", type: "textarea" }
   ], [plans, trainers]);
@@ -743,9 +743,9 @@ export default function MemberManagement() {
     const headers = ["Member ID", "Full Name", "Phone", "Email", "Plan", "Trainer", "Joining Date", "Status"];
     const rows = members.map((m) => [
       m.id,
-      m.profile.full_name,
-      m.profile.phone || "N/A",
-      m.profile.email || "N/A",
+      m.profile?.full_name || "N/A",
+      m.profile?.phone || "N/A",
+      m.profile?.email || "N/A",
       m.active_membership?.plan_name || "N/A",
       m.assigned_trainer?.full_name || "N/A",
       m.joining_date,
@@ -888,9 +888,9 @@ export default function MemberManagement() {
                 const headers = ["Member ID", "Full Name", "Phone", "Email", "Plan", "Trainer", "Joining Date", "Status"];
                 const rows = selectedMembers.map((m) => [
                   m.id,
-                  m.profile.full_name,
-                  m.profile.phone || "N/A",
-                  m.profile.email || "N/A",
+                  m.profile?.full_name || "N/A",
+                  m.profile?.phone || "N/A",
+                  m.profile?.email || "N/A",
                   m.active_membership?.plan_name || "N/A",
                   m.assigned_trainer?.full_name || "N/A",
                   m.joining_date,
@@ -974,14 +974,14 @@ export default function MemberManagement() {
               {/* Profile Card Header */}
               <div className="flex items-center gap-4 bg-[#121212] border border-white/5 p-4 rounded-3xl">
                 <div className="w-16 h-16 rounded-full border-2 border-[#FF6B00]/40 bg-black/40 flex items-center justify-center text-lg font-black text-slate-400">
-                  {activeMember.profile.avatar_url ? (
+                  {activeMember.profile?.avatar_url ? (
                     <img src={activeMember.profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
                   ) : (
-                    activeMember.profile.full_name ? activeMember.profile.full_name[0].toUpperCase() : "?"
+                    activeMember.profile?.full_name ? activeMember.profile.full_name[0].toUpperCase() : "?"
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-wider text-white">{activeMember.profile.full_name}</h3>
+                  <h3 className="text-lg font-black uppercase tracking-wider text-white">{activeMember.profile?.full_name || "N/A"}</h3>
                   <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Member ID: {activeMember.id}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
@@ -1033,33 +1033,33 @@ export default function MemberManagement() {
                   <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Gender</p>
-                      <p className="text-white capitalize mt-0.5">{activeMember.profile.gender || "N/A"}</p>
+                      <p className="text-white capitalize mt-0.5">{activeMember.profile?.gender || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Date of Birth</p>
-                      <p className="text-white mt-0.5">{activeMember.profile.date_of_birth || "N/A"}</p>
+                      <p className="text-white mt-0.5">{activeMember.profile?.date_of_birth || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Email Address</p>
-                      <p className="text-white mt-0.5 truncate">{activeMember.profile.email || "N/A"}</p>
+                      <p className="text-white mt-0.5 truncate">{activeMember.profile?.email || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Phone Number</p>
-                      <p className="text-white mt-0.5">{activeMember.profile.phone || "N/A"}</p>
+                      <p className="text-white mt-0.5">{activeMember.profile?.phone || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Occupation</p>
-                      <p className="text-white mt-0.5 capitalize">{activeMember.profile.occupation || "N/A"}</p>
+                      <p className="text-white mt-0.5 capitalize">{activeMember.profile?.occupation || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Height & Weight</p>
                       <p className="text-white mt-0.5">
-                        {activeMember.profile.height ? `${activeMember.profile.height} cm` : "N/A"} / {activeMember.profile.weight ? `${activeMember.profile.weight} kg` : "N/A"}
+                        {activeMember.profile?.height ? `${activeMember.profile.height} cm` : "N/A"} / {activeMember.profile?.weight ? `${activeMember.profile.weight} kg` : "N/A"}
                       </p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-slate-500 text-[10px] uppercase">Residential Address</p>
-                      <p className="text-white mt-0.5">{activeMember.profile.address || "N/A"}</p>
+                      <p className="text-white mt-0.5">{activeMember.profile?.address || "N/A"}</p>
                     </div>
                   </div>
                 </div>
@@ -1072,19 +1072,19 @@ export default function MemberManagement() {
                   <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Emergency Contact Name</p>
-                      <p className="text-white mt-0.5">{activeMember.profile.emergency_contact_name || "N/A"}</p>
+                      <p className="text-white mt-0.5">{activeMember.profile?.emergency_contact_name || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px] uppercase">Emergency Relation & Phone</p>
                       <p className="text-white mt-0.5">
-                        {activeMember.profile.emergency_contact_phone || "N/A"}{" "}
-                        {activeMember.profile.emergency_relation && `(${activeMember.profile.emergency_relation})`}
+                        {activeMember.profile?.emergency_contact_phone || "N/A"}{" "}
+                        {activeMember.profile?.emergency_relation && `(${activeMember.profile.emergency_relation})`}
                       </p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-slate-500 text-[10px] uppercase font-bold text-red-400">Medical Notes / Constraints</p>
                       <p className="text-white mt-0.5 bg-black/40 border border-white/5 p-2 rounded-xl text-[11px] whitespace-pre-line">
-                        {activeMember.profile.medical_notes || "No reported medical conditions or physical constraints."}
+                        {activeMember.profile?.medical_notes || "No reported medical conditions or physical constraints."}
                       </p>
                     </div>
                   </div>
@@ -1642,21 +1642,21 @@ export default function MemberManagement() {
               onSubmit={onEditSubmit}
               submitLabel="Save Changes"
               defaultValues={{
-                full_name: activeMember.profile.full_name,
-                email: activeMember.profile.email,
-                phone: activeMember.profile.phone,
-                date_of_birth: activeMember.profile.date_of_birth,
-                gender: activeMember.profile.gender,
-                address: activeMember.profile.address,
-                occupation: activeMember.profile.occupation,
-                height: activeMember.profile.height,
-                weight: activeMember.profile.weight,
-                medical_notes: activeMember.profile.medical_notes,
-                emergency_contact_name: activeMember.profile.emergency_contact_name,
-                emergency_contact_phone: activeMember.profile.emergency_contact_phone,
-                emergency_relation: activeMember.profile.emergency_relation,
-                trainer_id: activeMember.assigned_trainer?.id,
-                notes: activeMember.notes
+                full_name: activeMember.profile?.full_name || "",
+                email: activeMember.profile?.email || "",
+                phone: activeMember.profile?.phone || "",
+                date_of_birth: activeMember.profile?.date_of_birth || "",
+                gender: activeMember.profile?.gender || "",
+                address: activeMember.profile?.address || "",
+                occupation: activeMember.profile?.occupation || "",
+                height: activeMember.profile?.height || "",
+                weight: activeMember.profile?.weight || "",
+                medical_notes: activeMember.profile?.medical_notes || "",
+                emergency_contact_name: activeMember.profile?.emergency_contact_name || "",
+                emergency_contact_phone: activeMember.profile?.emergency_contact_phone || "",
+                emergency_relation: activeMember.profile?.emergency_relation || "",
+                trainer_id: activeMember.assigned_trainer?.id || "",
+                notes: activeMember.notes || ""
               }}
             />
           )}
@@ -1668,14 +1668,14 @@ export default function MemberManagement() {
         isOpen={isArchiveOpen}
         onOpenChange={setIsArchiveOpen}
         onConfirm={onArchiveConfirm}
-        itemName={activeMember?.profile.full_name}
+        itemName={activeMember?.profile?.full_name}
       />
 
       <RestoreConfirmDialog
         isOpen={isRestoreOpen}
         onOpenChange={setIsRestoreOpen}
         onConfirm={onRestoreConfirm}
-        itemName={activeMember?.profile.full_name}
+        itemName={activeMember?.profile?.full_name}
       />
 
       {/* BULK ACTIONS PICKERS */}
@@ -1702,7 +1702,7 @@ export default function MemberManagement() {
               <option value="">Select Trainer...</option>
               {trainers.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.profile.full_name} ({t.specialization || "General"})
+                  {t.profile?.full_name || "Trainer"} ({t.specialization || "General"})
                 </option>
               ))}
             </select>
