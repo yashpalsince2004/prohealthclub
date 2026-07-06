@@ -56,15 +56,25 @@ export interface TrainerSummary {
 
 export interface TrainerResponse {
   id: string;
+  employee_id: string | null;
   specialization: string | null;
+  specializations: string[] | null;
   experience_years: number | null;
+  qualification: string | null;
+  certifications: string[];
   bio: string | null;
-  salary: number;
-  joining_staff_date: string;
   is_available: boolean;
   is_active: boolean;
-  certifications: string[];
+  employment_type: string | null;
+  salary: number | null;
+  salary_type: string | null;
+  shift: string | null;
+  joining_staff_date: string | null;
+  max_members: number;
+  working_days: string[] | null;
+  working_hours: string | null;
   profile: ProfileResponse;
+  assigned_member_count: number;
   assigned_members?: MemberResponse[];
 }
 

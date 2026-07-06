@@ -136,5 +136,10 @@ export const api = {
       body: body ? JSON.stringify(body) : undefined,
       headers: { "Content-Type": "application/json" },
     }),
-  delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, body?: unknown) =>
+    apiFetch<T>(path, {
+      method: "DELETE",
+      body: body ? JSON.stringify(body) : undefined,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+    }),
 };
