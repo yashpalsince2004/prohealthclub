@@ -439,6 +439,17 @@ export default function MemberManagement() {
       await memberService.updateMember(activeMember.id, data);
       notify.success("Member record updated successfully");
       setIsEditOpen(false);
+      
+      // Update activeMember with updated profile data to refresh the drawer in place
+      setActiveMember(prev => prev ? {
+        ...prev,
+        profile: {
+          ...prev.profile,
+          ...data
+        },
+        notes: data.notes
+      } : null);
+
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Failed to edit member profile");
@@ -451,6 +462,8 @@ export default function MemberManagement() {
       await memberService.archiveMember(activeMember.id);
       notify.success("Member archived successfully");
       setIsArchiveOpen(false);
+      setIsViewOpen(false);
+      setActiveMember(null);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Failed to archive member account");
@@ -463,6 +476,8 @@ export default function MemberManagement() {
       await memberService.restoreMember(activeMember.id);
       notify.success("Member restored successfully");
       setIsRestoreOpen(false);
+      setIsViewOpen(false);
+      setActiveMember(null);
       loadData();
     } catch (err: any) {
       notify.error(err?.message || "Failed to restore member");
@@ -956,7 +971,12 @@ export default function MemberManagement() {
       </div>
 
       {/* DRAWER: VIEW DETAILS */}
-      <Sheet open={isViewOpen} onOpenChange={setIsViewOpen}>
+      <Sheet open={isViewOpen} onOpenChange={(open) => {
+        setIsViewOpen(open);
+        if (!open) {
+          setActiveMember(null);
+        }
+      }}>
         <SheetContent className="w-full sm:max-w-2xl bg-[#090909] border-l border-white/5 text-white p-6 overflow-y-auto h-full flex flex-col justify-between">
           <SheetHeader className="text-left border-b border-white/5 pb-4">
             <SheetTitle className="text-white flex items-center gap-2">
@@ -1000,7 +1020,6 @@ export default function MemberManagement() {
               <div className="flex items-center gap-3 bg-[#121212] border border-white/5 p-4 rounded-3xl">
                 <Button
                   onClick={() => {
-                    setIsViewOpen(false);
                     setIsEditOpen(true);
                   }}
                   className="flex-1 h-10 bg-black hover:bg-slate-900 border border-white/10 text-xs font-bold uppercase tracking-wider text-slate-200 rounded-xl flex items-center justify-center gap-1.5"
@@ -1010,7 +1029,6 @@ export default function MemberManagement() {
                 <Permission allowedRoles={["admin"]}>
                   <Button
                     onClick={() => {
-                      setIsViewOpen(false);
                       setIsArchiveOpen(true);
                     }}
                     className="flex-1 h-10 bg-black hover:bg-slate-900 border border-red-500/20 text-xs font-bold uppercase tracking-wider text-red-500 rounded-xl flex items-center justify-center gap-1.5"
