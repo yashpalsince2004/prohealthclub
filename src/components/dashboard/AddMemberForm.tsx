@@ -1,191 +1,151 @@
-import { useState, useEffect } from "react";
-import {
-  UserPlus, Save, Check, Key, ShieldCheck,
-  Printer, CheckCircle, Eye, EyeOff, Copy,
+import { useState, useEffect, useMemo } from "react";
+import { 
+  UserPlus, Check, Key, ShieldCheck, Printer, CheckCircle, Eye, EyeOff, Copy, Clipboard, DollarSign
 } from "lucide-react";
 import { api } from "../../lib/api";
-import type { PlanResponse, MemberResponse } from "../../lib/types";
+import { pricingService } from "../../lib/pricingService";
+import type { PlanResponse, MemberResponse, PTPlan, LockerPlan, AdditionalService } from "../../lib/types";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-import {
-  Select, SelectContent, SelectItem,
-  SelectTrigger, SelectValue,
-} from "../ui/select";
 import { toast } from "sonner";
+import { formatINR } from "../../lib/format";
 
-export default function AddMemberForm({
-  onSuccess,
-  initialData,
-}: {
-  onSuccess?: () => void;
-  initialData?: {
-    fullName?: string;
-    phone?: string;
-    email?: string;
-    gender?: string;
-  };
-}) {
+export default function AddMemberForm({ onSuccess }: { onSuccess?: () => void }) {
   const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [trainers, setTrainers] = useState<any[]>([]);
-  const [loadingDropdowns, setLoadingDropdowns] = useState(true);
+  const [ptPlans, setPtPlans] = useState<PTPlan[]>([]);
+  const [lockerPlans, setLockerPlans] = useState<LockerPlan[]>([]);
+  const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>([]);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   const [createdSummary, setCreatedSummary] = useState<any | null>(null);
 
-  // Step 1: Personal Details
-  const [fullName, setFullName] = useState(initialData?.fullName || "");
-  const [phone, setPhone] = useState(initialData?.phone || "");
-  const [email, setEmail] = useState(initialData?.email || "");
+  // Form states
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other" | "">(
-    (initialData?.gender as any) || ""
-  );
+  const [gender, setGender] = useState("male");
   const [address, setAddress] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [medicalNotes, setMedicalNotes] = useState("");
   const [emergencyName, setEmergencyName] = useState("");
   const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [medicalNotes, setMedicalNotes] = useState("");
+  const [emergencyRelation, setEmergencyRelation] = useState("");
+  const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split("T")[0]);
+  const [password, setPassword] = useState("123456");
 
-  // Step 2: Membership Setup
-  const [selectedPlanId, setSelectedPlanId] = useState("no-plan"); // 'no-plan' = sentinel; empty string crashes Radix Select
-  const [selectedTrainerId, setSelectedTrainerId] = useState("");
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [membershipNotes, setMembershipNotes] = useState("");
+  // Billing states
+  const [regCategory, setRegCategory] = useState("CrossFit + Weight Training");
+  const [regDuration, setRegDuration] = useState(30);
+  const [regLocker, setRegLocker] = useState(false);
+  const [regPT, setRegPT] = useState(false);
+  const [regPTPlanId, setRegPTPlanId] = useState("");
+  const [regPTDuration, setRegPTDuration] = useState(1);
+  const [regTrainerId, setRegTrainerId] = useState("");
+  const [regSelectedServices, setRegSelectedServices] = useState<string[]>([]);
+  const [regPaymentMethod, setRegPaymentMethod] = useState<any>("cash");
+  const [regAmountPaid, setRegAmountPaid] = useState("");
+  const [regNotes, setRegNotes] = useState("");
 
-  // Step 3: Portal Credentials
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
+  // Load configs
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [plansRes, trainersRes] = await Promise.all([
-          api.get<PlanResponse[]>("/api/v1/plans/?active_only=true"),
-          api.get<any>("/api/v1/trainers/?available_only=true"),
+        const [trainersList, plansList, ptList, lockerList, servicesList] = await Promise.all([
+          api.get<any>("/api/v1/trainers/?available_only=true").then(res => res.trainers || res || []),
+          pricingService.getMembershipPlans(),
+          pricingService.getPTPlans(),
+          pricingService.getLockerPlans(),
+          pricingService.getAdditionalServices()
         ]);
-        setPlans(plansRes);
-        setTrainers(trainersRes.trainers || []);
+        setTrainers(trainersList);
+        setPlans(plansList);
+        setPtPlans(ptList);
+        setLockerPlans(lockerList);
+        setAdditionalServices(servicesList);
       } catch (err) {
-        console.error("Failed to load plans or trainers lists", err);
+        console.error("Failed to load options:", err);
       } finally {
-        setLoadingDropdowns(false);
+        setLoading(false);
       }
     };
     fetchData();
   }, []);
 
-  // ── Member ID helpers ─────────────────────────────────────────
-  /** Convert a UUID to a human-readable PHC ID without exposing raw UUID. */
-  const uuidToMemberId = (uuid: string): string => {
-    // Take last 12 hex chars, parse as base-16 number, mod to 6 digits
-    const hex = uuid.replace(/-/g, "").slice(-12);
-    const num = parseInt(hex, 16) % 1_000_000;
-    return `PHC${String(num).padStart(6, "0")}`;
-  };
+  // POS Invoice calculations
+  const billingCalculations = useMemo(() => {
+    const resolvedPlan = plans.find(p => p.category === regCategory && p.duration_days === Number(regDuration));
+    const baseMembershipCost = resolvedPlan ? Number(resolvedPlan.price) : 0;
+    const admissionFee = resolvedPlan ? Number(resolvedPlan.admission_fee) : 0;
+    const taxPercent = resolvedPlan ? Number(resolvedPlan.tax) : 0;
 
-  // ── Password helpers ─────────────────────────────────────────
-  const handleGeneratePassword = () => {
-    const chars =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    const pin = Math.floor(100 + Math.random() * 900);
-    const rand = Array.from({ length: 5 }, () =>
-      chars.charAt(Math.floor(Math.random() * chars.length))
-    ).join("");
-    const generated = `Prro${pin}${rand}`;
-    setPassword(generated);
-    setShowPassword(true);
-  };
-
-  const handleCopyPassword = () => {
-    if (!password) return;
-    navigator.clipboard.writeText(password);
-    toast.success("Password copied to clipboard");
-  };
-
-  const passwordStrength = (pw: string): { label: string; color: string; width: string } => {
-    if (!pw) return { label: "", color: "", width: "w-0" };
-    const score = [
-      pw.length >= 8,
-      /[A-Z]/.test(pw),
-      /[a-z]/.test(pw),
-      /[0-9]/.test(pw),
-      /[^A-Za-z0-9]/.test(pw),
-    ].filter(Boolean).length;
-    if (score <= 2) return { label: "Weak", color: "bg-red-500", width: "w-1/4" };
-    if (score === 3) return { label: "Fair", color: "bg-amber-400", width: "w-2/4" };
-    if (score === 4) return { label: "Good", color: "bg-emerald-400", width: "w-3/4" };
-    return { label: "Strong", color: "bg-emerald-500", width: "w-full" };
-  };
-
-  const strength = passwordStrength(password);
-
-  // ── Step navigation ──────────────────────────────────────────
-  const handleNextStep = () => {
-    if (currentStep === 1) {
-      if (!fullName.trim() || !phone.trim() || !email.trim()) {
-        toast.error("Name, Phone, and Email are required.");
-        return;
+    const depositLocker = regLocker && lockerPlans.length > 0 ? Number(lockerPlans[0].deposit) : 0;
+    let rentLocker = 0;
+    if (regLocker && lockerPlans.length > 0) {
+      const lockObj = lockerPlans[0];
+      const days = Number(regDuration);
+      if (days >= 90) {
+        rentLocker = (days / 90) * Number(lockObj.quarterly_rent);
+      } else {
+        rentLocker = (days / 30) * Number(lockObj.monthly_rent);
       }
-      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRe.test(email)) {
-        toast.error("Please enter a valid email address.");
-        return;
-      }
-      const phoneRe = /^[0-9]{10}$/;
-      if (!phoneRe.test(phone.trim())) {
-        toast.error("Phone number must be exactly 10 digits.");
-        return;
-      }
-      if (emergencyPhone.trim() && !phoneRe.test(emergencyPhone.trim())) {
-        toast.error("Emergency contact phone number must be exactly 10 digits.");
-        return;
-      }
-      setCurrentStep(2);
-    } else if (currentStep === 2) {
-      setCurrentStep(3);
     }
-  };
 
-  const handlePrevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
+    const ptPkg = ptPlans.find(pt => pt.id === regPTPlanId);
+    const ptMonthlyPrice = ptPkg ? Number(ptPkg.price) : 0;
+    const ptMonths = Number(regPTDuration);
+    const ptBaseCost = ptMonthlyPrice * ptMonths;
+    const ptDiscountPercent = ptMonths === 3 ? 10 : ptMonths === 6 ? 15 : ptMonths === 12 ? 20 : 0;
+    const ptDiscountAmount = ptBaseCost * (ptDiscountPercent / 100);
+    const netPTCost = ptBaseCost - ptDiscountAmount;
 
-  // ── Submit: single atomic POST ───────────────────────────────
+    let servicesCost = 0;
+    regSelectedServices.forEach(srvId => {
+      const srv = additionalServices.find(s => s.id === srvId);
+      if (srv) {
+        servicesCost += Number(srv.price);
+      }
+    });
+
+    const taxableAmount = baseMembershipCost + rentLocker + netPTCost + servicesCost;
+    const gstAmount = taxableAmount * (taxPercent / 100);
+    const grandTotal = admissionFee + depositLocker + taxableAmount + gstAmount;
+
+    return {
+      resolvedPlanId: resolvedPlan?.id || "",
+      resolvedPlan,
+      baseMembershipCost,
+      admissionFee,
+      depositLocker,
+      rentLocker,
+      ptBaseCost,
+      ptDiscountPercent,
+      ptDiscountAmount,
+      netPTCost,
+      servicesCost,
+      taxPercent,
+      gstAmount,
+      grandTotal
+    };
+  }, [regCategory, regDuration, regLocker, regPTPlanId, regPTDuration, regSelectedServices, plans, ptPlans, lockerPlans, additionalServices]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!password) {
-      toast.error("Password is required. Use the Generate button.");
+    if (!fullName.trim() || !phone.trim() || !email.trim()) {
+      toast.error("Name, Phone, and Email are required.");
       return;
     }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
-    if (!/[A-Z]/.test(password)) {
-      toast.error("Password must contain at least one uppercase letter.");
-      return;
-    }
-    if (!/[a-z]/.test(password)) {
-      toast.error("Password must contain at least one lowercase letter.");
-      return;
-    }
-    if (!/[0-9]/.test(password)) {
-      toast.error("Password must contain at least one number.");
+    if (!billingCalculations.resolvedPlanId) {
+      toast.error("No valid membership plan resolved for selection.");
       return;
     }
 
     setSubmitting(true);
     try {
-      /**
-       * Single atomic request.
-       * The backend handles User + Profile + Member + Membership + Trainer
-       * in ONE transaction. Do NOT make separate calls for memberships or
-       * trainer assignment — that causes partial failures.
-       */
+      // 1. Create member
       const member = await api.post<MemberResponse>("/api/v1/members/", {
         email: email.trim().toLowerCase(),
         password,
@@ -196,33 +156,73 @@ export default function AddMemberForm({
         address: address.trim() || null,
         emergency_contact_name: emergencyName.trim() || null,
         emergency_contact_phone: emergencyPhone.trim() || null,
-        notes: (medicalNotes.trim() || membershipNotes.trim()) || null,
-        joining_date: startDate,
-        // Plan and trainer are handled atomically by the backend
-        plan_id: selectedPlanId && selectedPlanId !== "no-plan" ? selectedPlanId : null,
-        trainer_id:
-          selectedTrainerId && selectedTrainerId !== "none"
-            ? selectedTrainerId
-            : null,
+        emergency_relation: emergencyRelation.trim() || null,
+        notes: (medicalNotes.trim() || regNotes.trim()) || null,
+        joining_date: joiningDate,
+        plan_id: billingCalculations.resolvedPlanId,
+        trainer_id: regPT && regTrainerId ? regTrainerId : null,
       });
 
-      toast.success(`${fullName} registered successfully!`);
+      // 2. Log POS invoice payment
+      const activeMemId = member?.active_membership?.id || member?.memberships?.[0]?.id;
+      if (activeMemId) {
+        const ptPkg = ptPlans.find(pt => pt.id === regPTPlanId);
+        const lockerDetails = regLocker && lockerPlans.length > 0 ? {
+          name: lockerPlans[0].name,
+          deposit: billingCalculations.depositLocker,
+          rent: billingCalculations.rentLocker
+        } : null;
 
-      const selectedPlan = plans.find((p) => p.id === selectedPlanId);
-      const selectedTrainer = trainers.find((t) => t.id === selectedTrainerId);
+        const ptDetails = regPT && ptPkg ? {
+          package_name: ptPkg.package_name,
+          duration_months: Number(regPTDuration),
+          price: billingCalculations.netPTCost,
+          discount: billingCalculations.ptDiscountAmount
+        } : null;
+
+        const servicesDetails = regSelectedServices.map(srvId => {
+          const srv = additionalServices.find(s => s.id === srvId);
+          return srv ? { name: srv.name, price: Number(srv.price) } : null;
+        }).filter(Boolean);
+
+        const billBreakdown = {
+          admission_fee: billingCalculations.admissionFee,
+          membership_base: billingCalculations.baseMembershipCost,
+          locker: lockerDetails,
+          pt: ptDetails,
+          services: servicesDetails,
+          tax_percent: billingCalculations.taxPercent,
+          tax_amount: billingCalculations.gstAmount,
+          grand_total: billingCalculations.grandTotal
+        };
+
+        const paymentAmt = regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal;
+
+        await api.post("/api/v1/payments/", {
+          membership_id: activeMemId,
+          member_id: member.id,
+          amount_paid: paymentAmt,
+          payment_method: regPaymentMethod,
+          notes: `Initial registration invoice payment. Paid: ${paymentAmt}, Total: ${billingCalculations.grandTotal}`,
+          billing_details: billBreakdown
+        });
+      }
+
+      toast.success(`${fullName} registered successfully!`);
 
       setCreatedSummary({
         fullName,
         email,
         phone,
-        planName: selectedPlan ? selectedPlan.name : "No Subscription",
-        trainerName: selectedTrainer
-          ? selectedTrainer.profile?.full_name
+        planName: billingCalculations.resolvedPlan ? billingCalculations.resolvedPlan.name : "No Subscription",
+        trainerName: regPT && regTrainerId 
+          ? trainers.find(t => t.id === regTrainerId)?.profile?.full_name || "Assigned Coach"
           : "General Coaching",
-        startDate,
+        joiningDate,
         password,
-        memberId: member.id,                   // raw UUID for API use
-        displayId: uuidToMemberId(member.id),  // human-readable for UI
+        displayId: `PHC-${phone.slice(-6)}`,
+        grandTotal: billingCalculations.grandTotal,
+        amountPaid: regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to register member");
@@ -231,268 +231,66 @@ export default function AddMemberForm({
     }
   };
 
-  // ── Print clean credential card (no browser chrome) ─────────
-  const handlePrint = () => {
-    if (!createdSummary) return;
-    const s = createdSummary;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Member Credential Card — ${s.displayId}</title>
-  <style>
-    @media print { @page { margin: 0; size: 85mm 150mm; } }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 10mm;
-    }
-    .card {
-      width: 65mm;
-      border: 1.5px solid #FF6B00;
-      border-radius: 6mm;
-      overflow: hidden;
-    }
-    .header {
-      background: #FF6B00;
-      color: #fff;
-      text-align: center;
-      padding: 5mm 4mm 3mm;
-    }
-    .header h1 {
-      font-size: 11pt;
-      font-weight: 900;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-    .header p {
-      font-size: 7pt;
-      opacity: 0.85;
-      margin-top: 1mm;
-    }
-    .id-band {
-      background: #fff7f0;
-      border-bottom: 1px solid #ffe0cc;
-      padding: 3mm 4mm;
-      text-align: center;
-    }
-    .id-band .id-label {
-      font-size: 6pt;
-      text-transform: uppercase;
-      color: #999;
-      letter-spacing: 1px;
-    }
-    .id-band .id-value {
-      font-size: 14pt;
-      font-weight: 900;
-      color: #FF6B00;
-      letter-spacing: 2px;
-      margin-top: 1mm;
-    }
-    .fields { padding: 3mm 4mm; }
-    .field {
-      padding: 2.5mm 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .field:last-child { border-bottom: none; }
-    .field .lbl {
-      font-size: 6pt;
-      text-transform: uppercase;
-      color: #aaa;
-      letter-spacing: 0.8px;
-    }
-    .field .val {
-      font-size: 9pt;
-      font-weight: 700;
-      color: #111;
-      margin-top: 0.5mm;
-    }
-    .field .val.mono {
-      font-family: 'Courier New', monospace;
-      background: #f5f5f5;
-      padding: 1mm 2mm;
-      border-radius: 2mm;
-      display: inline-block;
-      font-size: 10pt;
-    }
-    .footer {
-      background: #fafafa;
-      border-top: 1px solid #f0f0f0;
-      padding: 2mm 4mm;
-      text-align: center;
-      font-size: 6pt;
-      color: #bbb;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>Prro Health Club</h1>
-      <p>Member Welcome Card</p>
-    </div>
-    <div class="id-band">
-      <div class="id-label">Member ID</div>
-      <div class="id-value">${s.displayId}</div>
-    </div>
-    <div class="fields">
-      <div class="field"><div class="lbl">Name</div><div class="val">${s.fullName}</div></div>
-      <div class="field"><div class="lbl">Email (Login)</div><div class="val">${s.email}</div></div>
-      <div class="field"><div class="lbl">Phone</div><div class="val">${s.phone || '—'}</div></div>
-      <div class="field"><div class="lbl">Password</div><div class="val"><span class="mono">${s.password}</span></div></div>
-      <div class="field"><div class="lbl">Plan</div><div class="val">${s.planName}</div></div>
-      <div class="field"><div class="lbl">Trainer</div><div class="val">${s.trainerName}</div></div>
-    </div>
-    <div class="footer">prohealthclub-two.vercel.app/login</div>
-  </div>
-  <script>window.onload = function(){ window.print(); }<\/script>
-</body>
-</html>`);
-    printWindow.document.close();
-  };
-
-  /**
-   * "Add Another" — resets the form but keeps the dialog open.
-   * Does NOT call onSuccess so the dialog stays mounted.
-   */
   const handleReset = () => {
     setCreatedSummary(null);
-    setCurrentStep(1);
     setFullName("");
     setPhone("");
     setEmail("");
     setDob("");
-    setGender("");
+    setGender("male");
     setAddress("");
     setEmergencyName("");
     setEmergencyPhone("");
+    setEmergencyRelation("");
     setMedicalNotes("");
-    setSelectedPlanId("");
-    setSelectedTrainerId("");
-    setStartDate(new Date().toISOString().split("T")[0]);
-    setMembershipNotes("");
-    setPassword("");
-    setShowPassword(false);
-    // intentionally NOT calling onSuccess — dialog stays open for next member
-  };
-
-  // ── Success card ─────────────────────────────────────────────
-  // Derives the login URL from the current host — works on localhost, staging, and production
-  // without any code changes.
-  const PORTAL_URL =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/login`
-      : "/login";
-
-  const handleCopyCredentials = () => {
-    if (!createdSummary) return;
-    const text = [
-      `🏋️ Prro Health Club — Welcome!`,
-      ``,
-      `Member ID : ${createdSummary.displayId}`,
-      `Name      : ${createdSummary.fullName}`,
-      ``,
-      `── Portal Login ──`,
-      `Login     : ${PORTAL_URL}`,
-      `Email     : ${createdSummary.email}`,
-      `Password  : ${createdSummary.password}`,
-      ``,
-      `── Membership ──`,
-      `Plan      : ${createdSummary.planName}`,
-      `Trainer   : ${createdSummary.trainerName}`,
-    ].join("\n");
-    navigator.clipboard.writeText(text);
-    toast.success("Credentials copied — ready to share on WhatsApp");
+    setRegLocker(false);
+    setRegPT(false);
+    setRegPTPlanId("");
+    setRegPTDuration(1);
+    setRegTrainerId("");
+    setRegSelectedServices([]);
+    setRegAmountPaid("");
+    setRegNotes("");
+    onSuccess?.();
   };
 
   if (createdSummary) {
     return (
-      <div className="space-y-5 animate-in fade-in duration-300">
-        {/* Status header */}
-        <div className="flex flex-col items-center gap-2 py-4">
+      <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl space-y-6 max-w-xl mx-auto text-left animate-in fade-in duration-300">
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
           <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center">
             <CheckCircle size={28} className="text-emerald-400" />
           </div>
-          <h3 className="text-sm font-black text-white">Member Created Successfully</h3>
+          <h3 className="text-sm font-black text-white">Member Created & Paid</h3>
           <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-            Account, membership &amp; trainer assigned
+            POS Settle Invoice Processed Successfully
           </p>
         </div>
 
-        {/* Credentials card */}
-        <div className="border border-white/8 rounded-2xl overflow-hidden">
-          {/* Member ID banner — show readable PHC ID, not raw UUID */}
-          <div className="bg-[#FF6B00]/8 border-b border-white/5 px-5 py-3 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Member ID</span>
+        <div className="border border-white/10 rounded-2xl overflow-hidden bg-black/40">
+          <div className="bg-[#FF6B00]/10 border-b border-white/5 px-5 py-3 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Card ID</span>
             <span className="text-sm font-mono font-black text-[#FF6B00] tracking-widest">
               {createdSummary.displayId}
             </span>
           </div>
 
-          {/* Fields */}
-          <div className="divide-y divide-white/5">
-            <CredRow icon="👤" label="Name"     value={createdSummary.fullName} />
-            <CredRow icon="✉️" label="Email"    value={createdSummary.email} />
-            <CredRow icon="📞" label="Phone"    value={createdSummary.phone || "—"} />
-            <CredRow icon="🏅" label="Plan"     value={createdSummary.planName} accent />
-            <CredRow icon="🏋️" label="Trainer"  value={createdSummary.trainerName} />
-          </div>
-
-          {/* Password row — monospace + copy */}
-          <div className="px-5 py-3.5 bg-black/30 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Portal Password</p>
-              <p className="text-base font-mono font-black text-white mt-1 tracking-widest">
-                {createdSummary.password}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(createdSummary.password);
-                toast.success("Password copied");
-              }}
-              className="h-8 px-3 flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[10px] font-bold transition-all border border-white/5"
-            >
-              <Copy size={12} /> Copy
-            </button>
+          <div className="divide-y divide-white/5 text-xs p-4 space-y-2 text-slate-300">
+            <div className="flex justify-between py-1.5"><span>Name:</span><span className="text-white font-bold">{createdSummary.fullName}</span></div>
+            <div className="flex justify-between py-1.5"><span>Email:</span><span className="text-white font-mono">{createdSummary.email}</span></div>
+            <div className="flex justify-between py-1.5"><span>Phone:</span><span className="text-white">{createdSummary.phone}</span></div>
+            <div className="flex justify-between py-1.5"><span>Plan:</span><span className="text-[#FF6B00] font-black">{createdSummary.planName}</span></div>
+            <div className="flex justify-between py-1.5"><span>Coach:</span><span className="text-white">{createdSummary.trainerName}</span></div>
+            <div className="flex justify-between py-1.5"><span>Grand Total:</span><span className="text-green-500 font-mono font-bold">{formatINR(createdSummary.grandTotal)}</span></div>
+            <div className="flex justify-between py-1.5"><span>Paid Amount:</span><span className="text-green-500 font-mono font-bold">{formatINR(createdSummary.amountPaid)}</span></div>
           </div>
         </div>
 
-        {/* Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={handleCopyCredentials}
-            className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/5"
-          >
-            <Copy size={13} /> Copy All
+          <Button onClick={handleReset} className="h-10 rounded-xl bg-[#FF6B00] text-black font-black uppercase text-xs tracking-wider">
+            Add Another Member
           </Button>
-          <Button
-            onClick={handlePrint}
-            className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/5"
-          >
-            <Printer size={13} /> Print Card
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={handleReset}
-            className="h-10 rounded-xl border border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-          >
-            <UserPlus size={13} /> Add Another
-          </Button>
-          <Button
-            onClick={() => onSuccess?.()}
-            className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider"
-            title="Close dialog and refresh member list"
-          >
+          <Button onClick={() => setCreatedSummary(null)} className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase border border-white/5">
             Done
           </Button>
         </div>
@@ -500,426 +298,340 @@ export default function AddMemberForm({
     );
   }
 
-  // ── Main form ────────────────────────────────────────────────
-  return (
-    <div className="bg-[#171717] border border-white/5 p-6 rounded-2xl shadow-lg space-y-6">
-      {/* Header + step indicator */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
-        <div className="flex items-center gap-2">
-          <UserPlus size={16} className="text-[#FF6B00]" />
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-white">
-              {currentStep === 1
-                ? "Personal Details"
-                : currentStep === 2
-                ? "Membership Setup"
-                : "Portal Credentials"}
-            </h3>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-              Step {currentStep} of 3
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center gap-2">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
-                  currentStep > step
-                    ? "bg-emerald-500 text-white"
-                    : currentStep === step
-                    ? "bg-[#FF6B00] text-white"
-                    : "bg-white/5 text-slate-500"
-                }`}
-              >
-                {currentStep > step ? <Check size={10} /> : step}
-              </div>
-              {step < 3 && (
-                <div
-                  className={`h-0.5 w-8 transition-all ${
-                    currentStep > step ? "bg-emerald-500" : "bg-white/5"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+  if (loading) {
+    return (
+      <div className="text-center py-10 text-slate-400 font-semibold animate-pulse text-xs uppercase">
+        Loading front-desk catalog definitions...
       </div>
+    );
+  }
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* ── STEP 1: Personal Details ──────────────────────── */}
-        {currentStep === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <Field label="Full Name *">
-              <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Legal full name"
-                className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Phone *">
-                <Input
-                  value={phone}
-                  maxLength={10}
-                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                  placeholder="10-digit number"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                />
-                {phone && phone.length < 10 && (
-                  <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
-                    Please complete the 10-digit phone number
-                  </p>
-                )}
-              </Field>
-              <Field label="Email *">
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                />
-              </Field>
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left">
+      {/* Left side: form fields (8 cols) */}
+      <div className="lg:col-span-7 space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">1. Personal Profile & Credentials</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Full Name *</Label>
+              <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Legal full name" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Gender">
-                <Select
-                  value={gender}
-                  onValueChange={(val: any) => setGender(val)}
-                >
-                  <SelectTrigger className="h-10 border-white/5 bg-black/40 rounded-xl text-white">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a1a] border border-white/5 text-white">
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Date of Birth">
-                <Input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                />
-              </Field>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Email Address *</Label>
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="yash@gmail.com" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]" />
             </div>
-            <Field label="Address">
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Home address"
-                className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Emergency Contact Name">
-                <Input
-                  value={emergencyName}
-                  onChange={(e) => setEmergencyName(e.target.value)}
-                  placeholder="Contact name"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                />
-              </Field>
-              <Field label="Emergency Contact Phone">
-                <Input
-                  value={emergencyPhone}
-                  maxLength={10}
-                  onChange={(e) => setEmergencyPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                  placeholder="Phone number"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                />
-                {emergencyPhone && emergencyPhone.length < 10 && (
-                  <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
-                    Please complete the 10-digit phone number
-                  </p>
-                )}
-              </Field>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Phone Number *</Label>
+              <input type="text" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="10-digit phone" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]" />
             </div>
-            <Field label="Medical Notes / Health Conditions">
-              <Textarea
-                value={medicalNotes}
-                onChange={(e) => setMedicalNotes(e.target.value)}
-                placeholder="Injuries, chronic conditions, physical constraints…"
-                className="min-h-16 border-white/5 bg-black/40 rounded-xl text-white placeholder:text-slate-600"
-              />
-            </Field>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Joining Date *</Label>
+              <input type="date" required value={joiningDate} onChange={e => setJoiningDate(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Date of Birth</Label>
+              <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Gender</Label>
+              <select value={gender} onChange={e => setGender(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Portal Password</Label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Occupation</Label>
+              <input type="text" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Job/Profession" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
           </div>
-        )}
 
-        {/* ── STEP 2: Membership Setup ──────────────────────── */}
-        {currentStep === 2 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            {loadingDropdowns ? (
-              <div className="py-6 text-center text-xs text-slate-500 font-semibold animate-pulse">
-                Loading plans and trainers…
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Height (cm)</Label>
+              <input type="number" value={height} onChange={e => setHeight(e.target.value)} placeholder="175" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Weight (kg)</Label>
+              <input type="number" value={weight} onChange={e => setWeight(e.target.value)} placeholder="70" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[10px] font-black text-slate-400 uppercase">Residential Address</Label>
+            <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Full home address..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2.5 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+          </div>
+        </div>
+
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">2. Emergency & Medical Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Contact Name</Label>
+              <input type="text" value={emergencyName} onChange={e => setEmergencyName(e.target.value)} placeholder="Person name" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Contact Phone</Label>
+              <input type="text" value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value)} placeholder="Phone number" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Relation</Label>
+              <input type="text" value={emergencyRelation} onChange={e => setEmergencyRelation(e.target.value)} placeholder="e.g. Spouse" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-black text-slate-400 uppercase">Medical Constraints Notes</Label>
+            <textarea value={medicalNotes} onChange={e => setMedicalNotes(e.target.value)} placeholder="Heart risk, joint injuries, asthma..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2.5 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+          </div>
+        </div>
+
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">3. Gym Subscriptions & Options</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Plan Category *</Label>
+              <select value={regCategory} onChange={e => setRegCategory(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]">
+                <option value="CrossFit + Weight Training">CrossFit + Weight Training</option>
+                <option value="Only Cardio">Only Cardio</option>
+                <option value="Cardio + CrossFit + Weight Training">Cardio + CrossFit + Weight Training</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Plan Period (Duration) *</Label>
+              <select value={regDuration} onChange={e => setRegDuration(Number(e.target.value))} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]">
+                <option value={30}>1 Month (30 Days)</option>
+                <option value={90}>3 Months (90 Days)</option>
+                <option value={180}>6 Months (180 Days)</option>
+                <option value={365}>1 Year (365 Days)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-white/5 pt-3">
+            <div>
+              <Label className="text-xs font-bold text-white block">Standard Locker Facility</Label>
+              <span className="text-[10px] text-slate-500 font-semibold block">₹500 Refundable Deposit + Rent (₹250/m or ₹600/qtr)</span>
+            </div>
+            <input type="checkbox" checked={regLocker} onChange={e => setRegLocker(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+          </div>
+
+          <div className="border-t border-white/5 pt-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-white block">Assign Personal Trainer (PT)</Label>
+                <span className="text-[10px] text-slate-500 font-semibold block">Dedicated certified coach. Multi-month discounts: 3m=10%, 6m=15%, 1y=20%</span>
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Membership Plan">
-                    <Select
-                      value={selectedPlanId}
-                      onValueChange={setSelectedPlanId}
-                    >
-                      <SelectTrigger className="h-10 border-white/5 bg-black/40 rounded-xl text-white">
-                        <SelectValue placeholder="No plan (skip)" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a1a] border border-white/5 text-white">
-                        <SelectItem value="no-plan">No Subscription</SelectItem>
-                        {plans.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} — ₹{p.price}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Assign Personal Trainer">
-                    <Select
-                      value={selectedTrainerId}
-                      onValueChange={setSelectedTrainerId}
-                    >
-                      <SelectTrigger className="h-10 border-white/5 bg-black/40 rounded-xl text-white">
-                        <SelectValue placeholder="No trainer" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a1a] border border-white/5 text-white">
-                        <SelectItem value="none">General Coaching</SelectItem>
-                        {trainers.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.profile?.full_name} ({t.specialization || "General"})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-                <Field label="Subscription Start Date">
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="h-10 border-white/5 bg-black/40 rounded-xl text-white"
-                  />
-                </Field>
-                <Field label="Internal Notes (optional)">
-                  <Textarea
-                    value={membershipNotes}
-                    onChange={(e) => setMembershipNotes(e.target.value)}
-                    placeholder="Payment status, body composition measurements, referral source…"
-                    className="min-h-20 border-white/5 bg-black/40 rounded-xl text-white placeholder:text-slate-600"
-                  />
-                </Field>
+              <input type="checkbox" checked={regPT} onChange={e => setRegPT(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+            </div>
 
-                {/* Tip if no plans loaded */}
-                {plans.length === 0 && (
-                  <p className="text-[10px] text-amber-400/80 bg-amber-400/5 border border-amber-400/10 px-3 py-2 rounded-lg">
-                    No active plans found. Member will be registered without a subscription.
-                  </p>
-                )}
-              </>
+            {regPT && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Package</Label>
+                  <select value={regPTPlanId} onChange={e => setRegPTPlanId(e.target.value)} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                    <option value="">Select Package...</option>
+                    {ptPlans.map(pt => (
+                      <option key={pt.id} value={pt.id}>{pt.package_name} - ₹{pt.price}/mo</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Duration</Label>
+                  <select value={regPTDuration} onChange={e => setRegPTDuration(Number(e.target.value))} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                    <option value={1}>1 Month</option>
+                    <option value={3}>3 Months (10% Off)</option>
+                    <option value={6}>6 Months (15% Off)</option>
+                    <option value={12}>1 Year (20% Off)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">Assign Coach</Label>
+                  <select value={regTrainerId} onChange={e => setRegTrainerId(e.target.value)} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                    <option value="">Select Trainer...</option>
+                    {trainers.map(t => (
+                      <option key={t.id} value={t.id}>{t.profile?.full_name || "Trainer"} ({t.specialization || "General"})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             )}
           </div>
-        )}
 
-        {/* ── STEP 3: Portal Credentials ────────────────────── */}
-        {currentStep === 3 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            {/* Context header */}
-            <div className="flex items-start gap-3 p-4 bg-white/3 border border-white/5 rounded-xl">
-              <ShieldCheck size={18} className="text-[#FF6B00] mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-white leading-tight">Portal Access Credentials</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Set the password the member will use to log in to the member portal.
-                  The login email is <span className="text-white font-semibold">{email}</span>.
-                </p>
-              </div>
+          <div className="border-t border-white/5 pt-3 space-y-2">
+            <Label className="text-[10px] font-bold text-slate-400 uppercase">Select Additional Services</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {additionalServices.map(srv => {
+                const isSelected = regSelectedServices.includes(srv.id);
+                return (
+                  <button
+                    type="button"
+                    key={srv.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setRegSelectedServices(prev => prev.filter(id => id !== srv.id));
+                      } else {
+                        setRegSelectedServices(prev => [...prev, srv.id]);
+                      }
+                    }}
+                    className={`h-8 px-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition-colors ${
+                      isSelected 
+                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]" 
+                        : "bg-black/30 border-white/5 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span className="truncate">{srv.name}</span>
+                    <span className="text-[10px] font-bold opacity-80">₹{srv.price}</span>
+                  </button>
+                );
+              })}
             </div>
-
-            {/* Generate button */}
-            <div className="flex items-center justify-between bg-[#FF6B00]/5 border border-[#FF6B00]/15 rounded-xl px-4 py-3">
-              <div>
-                <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Key size={13} className="text-[#FF6B00]" />
-                  Auto-Generate Password
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Creates a strong, secure password instantly
-                </p>
-              </div>
-              <Button
-                type="button"
-                onClick={handleGeneratePassword}
-                className="h-9 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white text-[10px] font-black uppercase tracking-wider px-3 flex items-center gap-1.5"
-              >
-                <Key size={12} />
-                Generate
-              </Button>
-            </div>
-
-            {/* Password field */}
-            <Field label="Password *">
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 8 chars · uppercase · lowercase · number"
-                  className="h-10 border-white/5 bg-black/40 rounded-xl text-white pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {/* Strength bar */}
-              {password && (
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${strength.color} ${strength.width}`}
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {strength.label}
-                  </span>
-                  {password && (
-                    <button
-                      type="button"
-                      onClick={handleCopyPassword}
-                      className="text-slate-500 hover:text-white transition-colors"
-                      title="Copy password"
-                    >
-                      <Copy size={12} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </Field>
-
-            {/* Password rules reminder */}
-            <p className="text-[10px] text-slate-600 font-semibold">
-              Requirements: min 8 characters · 1 uppercase · 1 lowercase · 1 number
-            </p>
           </div>
-        )}
-
-        {/* Navigation buttons */}
-        <div className="flex justify-between pt-4 border-t border-white/5">
-          {currentStep > 1 ? (
-            <Button
-              type="button"
-              onClick={handlePrevStep}
-              className="h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider px-4"
-            >
-              Back
-            </Button>
-          ) : (
-            <div />
-          )}
-
-          {currentStep < 3 ? (
-            <Button
-              type="button"
-              onClick={handleNextStep}
-              className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider px-4"
-            >
-              Next Step →
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="h-10 rounded-xl bg-[#FF6B00] hover:bg-[#FF8020] text-white font-bold text-xs uppercase tracking-wider px-4 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save size={14} />
-              {submitting ? "Registering…" : "Complete Registration"}
-            </Button>
-          )}
         </div>
-      </form>
-    </div>
-  );
-}
 
-// ── Small helpers ─────────────────────────────────────────────
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-        {label}
-      </Label>
-      {children}
-    </div>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div>
-      <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">
-        {label}
-      </span>
-      <span
-        className={`text-xs font-bold ${accent ? "text-[#FF6B00]" : "text-white"}`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function CredRow({
-  icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="px-5 py-3 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span className="text-base leading-none flex-shrink-0">{icon}</span>
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex-shrink-0">
-          {label}
-        </span>
+        <div className="bg-[#121212] border border-white/5 p-5 rounded-3xl space-y-4">
+          <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">4. Payment Settlement</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Payment Mode</Label>
+              <select value={regPaymentMethod} onChange={e => setRegPaymentMethod(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white focus:outline-none focus:border-[#FF6B00]">
+                <option value="cash">💵 Cash Payment</option>
+                <option value="upi">📱 UPI / QR Scan</option>
+                <option value="card">💳 Card Terminal</option>
+                <option value="bank_transfer">🏦 Bank Wire Transfer</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase">Amount Paid (₹)</Label>
+              <input
+                type="number"
+                value={regAmountPaid}
+                onChange={e => setRegAmountPaid(e.target.value)}
+                placeholder={`Default: ₹${billingCalculations.grandTotal}`}
+                className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 text-white font-mono"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-black text-slate-400 uppercase">General Registration Notes</Label>
+            <textarea value={regNotes} onChange={e => setRegNotes(e.target.value)} placeholder="Special billing agreements..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2.5 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+          </div>
+        </div>
       </div>
-      <span
-        className={`text-xs font-bold truncate text-right ${
-          accent ? "text-[#FF6B00]" : "text-white"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
+
+      {/* Right side: Pos Breakdown panel (5 cols) */}
+      <div className="lg:col-span-5">
+        <div className="bg-[#121212] border border-white/5 rounded-3xl p-5 space-y-4 sticky top-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-slate-300">
+              <Clipboard size={14} className="text-[#FF6B00]" /> POS Invoice Breakdown
+            </div>
+            <span className="text-[9px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-0.5 rounded-full font-black uppercase">
+              Auto-Calculator
+            </span>
+          </div>
+
+          <div className="space-y-3.5 text-xs">
+            <div className="flex justify-between items-center text-slate-400">
+              <span>Admission Entry Fee:</span>
+              <span className="font-mono text-white font-bold">{formatINR(billingCalculations.admissionFee)}</span>
+            </div>
+
+            <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+              <div>
+                <span className="block font-semibold text-white">Membership plan:</span>
+                <span className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">{regCategory} ({regDuration === 365 ? "1 Year" : `${regDuration / 30} Months`})</span>
+              </div>
+              <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.baseMembershipCost)}</span>
+            </div>
+
+            {regLocker && (
+              <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                <div>
+                  <span className="block font-semibold text-white">Locker Rent & Deposit:</span>
+                  <span className="text-[10px] text-slate-500 font-semibold uppercase">Deposit: {formatINR(billingCalculations.depositLocker)} • Rent: {formatINR(billingCalculations.rentLocker)}</span>
+                </div>
+                <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.depositLocker + billingCalculations.rentLocker)}</span>
+              </div>
+            )}
+
+            {regPT && ptPlans.find(pt => pt.id === regPTPlanId) && (
+              <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                <div>
+                  <span className="block font-semibold text-white">Personal Training Package:</span>
+                  <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                    {ptPlans.find(pt => pt.id === regPTPlanId)?.package_name} ({regPTDuration}m) 
+                    {billingCalculations.ptDiscountAmount > 0 && ` • -${billingCalculations.ptDiscountPercent}% discount`}
+                  </span>
+                </div>
+                <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.netPTCost)}</span>
+              </div>
+            )}
+
+            {regSelectedServices.length > 0 && (
+              <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                <div>
+                  <span className="block font-semibold text-white">Additional Services:</span>
+                  <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                    {regSelectedServices.map(srvId => additionalServices.find(s => s.id === srvId)?.name).join(", ")}
+                  </span>
+                </div>
+                <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.servicesCost)}</span>
+              </div>
+            )}
+
+            <div className="border-t-2 border-dashed border-white/10 pt-3 space-y-2">
+              <div className="flex justify-between text-slate-400 font-bold">
+                <span>Subtotal (Taxable):</span>
+                <span className="font-mono text-white">{formatINR(billingCalculations.baseMembershipCost + billingCalculations.rentLocker + billingCalculations.netPTCost + billingCalculations.servicesCost)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>GST CGST/SGST ({billingCalculations.taxPercent}%):</span>
+                <span className="font-mono text-white font-bold">{formatINR(billingCalculations.gstAmount)}</span>
+              </div>
+              <div className="flex justify-between text-white font-black text-sm border-t border-white/5 pt-2">
+                <span>Grand Total:</span>
+                <span className="font-mono text-[#00C853]">{formatINR(billingCalculations.grandTotal)}</span>
+              </div>
+            </div>
+
+            <div className="bg-black/45 border border-white/5 rounded-2xl p-3.5 space-y-2 mt-4">
+              <div className="flex justify-between text-slate-400 font-bold">
+                <span>Amount Received:</span>
+                <span className="font-mono text-white">
+                  {formatINR(regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-slate-400 border-t border-white/5 pt-2">
+                <span>Balance Outstanding:</span>
+                {(() => {
+                  const paid = regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal;
+                  const outstanding = billingCalculations.grandTotal - paid;
+                  return (
+                    <span className={`font-mono font-black ${outstanding > 0 ? "text-red-500" : "text-green-500"}`}>
+                      {formatINR(outstanding)}
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full h-11 mt-4 bg-[#FF6B00] hover:bg-[#FF8020] text-black font-black uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-orange-500/10"
+          >
+            {submitting ? "Processing Settlement..." : "Settle POS & Register"}
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 }

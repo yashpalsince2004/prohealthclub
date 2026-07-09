@@ -5,6 +5,9 @@ import {
   Calendar, DollarSign, Clock, ShieldAlert, RefreshCw, Clipboard, Trash, Edit, Check, Eye, Sliders
 } from "lucide-react";
 import { memberService, Member, sanitizePayload, MemberCreatePayload, MemberUpdatePayload } from "../../lib/memberService";
+import { pricingService } from "../../lib/pricingService";
+import { PTPlan, LockerPlan, AdditionalService } from "../../lib/types";
+import { formatINR } from "../../lib/format";
 import { notify } from "../../lib/notify";
 import { api } from "../../lib/api";
 import { Button } from "../ui/button";
@@ -107,6 +110,175 @@ export default function MemberManagement() {
   // Options cache
   const [trainers, setTrainers] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [ptPlans, setPtPlans] = useState<PTPlan[]>([]);
+  const [lockerPlans, setLockerPlans] = useState<LockerPlan[]>([]);
+  const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>([]);
+
+  // Calculator states
+  const [regCategory, setRegCategory] = useState("CrossFit + Weight Training");
+  const [regDuration, setRegDuration] = useState(30); // 1 Month default
+  const [regLocker, setRegLocker] = useState(false);
+  const [regPT, setRegPT] = useState(false);
+  const [regPTPlanId, setRegPTPlanId] = useState("");
+  const [regPTDuration, setRegPTDuration] = useState(1); // 1 Month default
+  const [regSelectedServices, setRegSelectedServices] = useState<string[]>([]);
+  const [regPaymentMethod, setRegPaymentMethod] = useState<any>("cash");
+  const [regAmountPaid, setRegAmountPaid] = useState("");
+  const [regNotes, setRegNotes] = useState("");
+
+  // Registration profile inputs states
+  const [regFullName, setRegFullName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regDOB, setRegDOB] = useState("");
+  const [regGender, setRegGender] = useState("male");
+  const [regAddress, setRegAddress] = useState("");
+  const [regOccupation, setRegOccupation] = useState("");
+  const [regHeight, setRegHeight] = useState("");
+  const [regWeight, setRegWeight] = useState("");
+  const [regMedicalNotes, setRegMedicalNotes] = useState("");
+  const [regEmergencyName, setRegEmergencyName] = useState("");
+  const [regEmergencyPhone, setRegEmergencyPhone] = useState("");
+  const [regEmergencyRelation, setRegEmergencyRelation] = useState("");
+  const [regJoiningDate, setRegJoiningDate] = useState(new Date().toISOString().split("T")[0]);
+  const [regPassword, setRegPassword] = useState("123456");
+  const [regTrainerId, setRegTrainerId] = useState("");
+  
+  // Real-time calculation helper
+  const billingCalculations = useMemo(() => {
+    // 1. Resolve membership plan base price
+    const resolvedPlan = plans.find(p => p.category === regCategory && p.duration_days === Number(regDuration));
+    const baseMembershipCost = resolvedPlan ? Number(resolvedPlan.price) : 0;
+    const admissionFee = resolvedPlan ? Number(resolvedPlan.admission_fee) : 0;
+    const taxPercent = resolvedPlan ? Number(resolvedPlan.tax) : 0;
+
+    // 2. Locker calculation
+    const depositLocker = regLocker && lockerPlans.length > 0 ? Number(lockerPlans[0].deposit) : 0;
+    let rentLocker = 0;
+    if (regLocker && lockerPlans.length > 0) {
+      const lockObj = lockerPlans[0];
+      const days = Number(regDuration);
+      if (days >= 90) {
+        rentLocker = (days / 90) * Number(lockObj.quarterly_rent);
+      } else {
+        rentLocker = (days / 30) * Number(lockObj.monthly_rent);
+      }
+    }
+
+    // 3. PT calculation
+    const ptPkg = ptPlans.find(pt => pt.id === regPTPlanId);
+    const ptMonthlyPrice = ptPkg ? Number(ptPkg.price) : 0;
+    const ptMonths = Number(regPTDuration);
+    const ptBaseCost = ptMonthlyPrice * ptMonths;
+    // PT discount percent: 3m=10%, 6m=15%, 1y=20%
+    const ptDiscountPercent = ptMonths === 3 ? 10 : ptMonths === 6 ? 15 : ptMonths === 12 ? 20 : 0;
+    const ptDiscountAmount = ptBaseCost * (ptDiscountPercent / 100);
+    const netPTCost = ptBaseCost - ptDiscountAmount;
+
+    // 4. Services calculation
+    let servicesCost = 0;
+    regSelectedServices.forEach(srvId => {
+      const srv = additionalServices.find(s => s.id === srvId);
+      if (srv) {
+        servicesCost += Number(srv.price);
+      }
+    });
+
+    // 5. Total taxable amount & tax GST calculation
+    const taxableAmount = baseMembershipCost + rentLocker + netPTCost + servicesCost;
+    const gstAmount = taxableAmount * (taxPercent / 100);
+
+    // 6. Grand total
+    const grandTotal = admissionFee + depositLocker + taxableAmount + gstAmount;
+
+    return {
+      resolvedPlan,
+      resolvedPlanId: resolvedPlan?.id || "",
+      baseMembershipCost,
+      admissionFee,
+      depositLocker,
+      rentLocker,
+      ptBaseCost,
+      ptDiscountPercent,
+      ptDiscountAmount,
+      netPTCost,
+      servicesCost,
+      taxPercent,
+      gstAmount,
+      grandTotal
+    };
+  }, [regCategory, regDuration, regLocker, regPTPlanId, regPTDuration, regSelectedServices, plans, ptPlans, lockerPlans, additionalServices]);
+
+  // Renewal calculator states
+  const [renewLocker, setRenewLocker] = useState(false);
+  const [renewPT, setRenewPT] = useState(false);
+  const [renewPTPlanId, setRenewPTPlanId] = useState("");
+  const [renewPTDuration, setRenewPTDuration] = useState(1);
+  const [renewSelectedServices, setRenewSelectedServices] = useState<string[]>([]);
+  const [renewPaymentMethod, setRenewPaymentMethod] = useState<any>("cash");
+  const [renewAmountPaid, setRenewAmountPaid] = useState("");
+
+  const renewalCalculations = useMemo(() => {
+    // 1. Resolve membership plan base price
+    const resolvedPlan = plans.find(p => p.id === renewPlanId);
+    const baseMembershipCost = resolvedPlan ? Number(resolvedPlan.price) : 0;
+    const admissionFee = 0.00; // renewal has no admission fee!
+    const taxPercent = resolvedPlan ? Number(resolvedPlan.tax) : 0;
+    const durationDays = resolvedPlan ? Number(resolvedPlan.duration_days) : 30;
+
+    // 2. Locker calculation
+    const depositLocker = 0.00; // renewal has no deposit fee again!
+    let rentLocker = 0;
+    if (renewLocker && lockerPlans.length > 0) {
+      const lockObj = lockerPlans[0];
+      if (durationDays >= 90) {
+        rentLocker = (durationDays / 90) * Number(lockObj.quarterly_rent);
+      } else {
+        rentLocker = (durationDays / 30) * Number(lockObj.monthly_rent);
+      }
+    }
+
+    // 3. PT calculation
+    const ptPkg = ptPlans.find(pt => pt.id === renewPTPlanId);
+    const ptMonthlyPrice = ptPkg ? Number(ptPkg.price) : 0;
+    const ptMonths = Number(renewPTDuration);
+    const ptBaseCost = ptMonthlyPrice * ptMonths;
+    const ptDiscountPercent = ptMonths === 3 ? 10 : ptMonths === 6 ? 15 : ptMonths === 12 ? 20 : 0;
+    const ptDiscountAmount = ptBaseCost * (ptDiscountPercent / 100);
+    const netPTCost = ptBaseCost - ptDiscountAmount;
+
+    // 4. Services calculation
+    let servicesCost = 0;
+    renewSelectedServices.forEach(srvId => {
+      const srv = additionalServices.find(s => s.id === srvId);
+      if (srv) {
+        servicesCost += Number(srv.price);
+      }
+    });
+
+    // 5. Total taxable amount & tax GST calculation
+    const taxableAmount = baseMembershipCost + rentLocker + netPTCost + servicesCost;
+    const gstAmount = taxableAmount * (taxPercent / 100);
+
+    // 6. Grand total
+    const grandTotal = taxableAmount + gstAmount;
+
+    return {
+      resolvedPlan,
+      baseMembershipCost,
+      admissionFee,
+      depositLocker,
+      rentLocker,
+      ptBaseCost,
+      ptDiscountPercent,
+      ptDiscountAmount,
+      netPTCost,
+      servicesCost,
+      taxPercent,
+      gstAmount,
+      grandTotal
+    };
+  }, [renewPlanId, renewLocker, renewPTPlanId, renewPTDuration, renewSelectedServices, plans, ptPlans, lockerPlans, additionalServices]);
 
   // Import / Export State
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -151,12 +323,18 @@ export default function MemberManagement() {
   // Load configuration options (trainers and plans list)
   const loadOptions = async () => {
     try {
-      const [trainersList, plansList] = await Promise.all([
+      const [trainersList, plansList, ptList, lockerList, servicesList] = await Promise.all([
         memberService.getTrainers(),
-        memberService.getPlans()
+        memberService.getPlans(),
+        pricingService.getPTPlans(),
+        pricingService.getLockerPlans(),
+        pricingService.getAdditionalServices()
       ]);
       setTrainers(trainersList);
       setPlans(plansList);
+      setPtPlans(ptList);
+      setLockerPlans(lockerList);
+      setAdditionalServices(servicesList);
     } catch (err: any) {
       console.error("Failed to load options:", err);
     }
@@ -303,6 +481,24 @@ export default function MemberManagement() {
     }
   ], []);
 
+  // Load PT Assignments from localStorage
+  const memberPTAssignment = useMemo(() => {
+    if (!activeMember || typeof window === "undefined") return null;
+    try {
+      const data = localStorage.getItem("prohealthclub_pt_assignments");
+      const list = data ? JSON.parse(data) : [];
+      return list.find((pt: any) => pt.member_id === activeMember.id && pt.status === "active") || null;
+    } catch (e) {
+      return null;
+    }
+  }, [activeMember, isTrainerAssignOpen]);
+
+  const latestBilling = useMemo(() => {
+    if (paymentHistory.length === 0) return null;
+    const latest = paymentHistory[0];
+    return latest.billing_details;
+  }, [paymentHistory]);
+
   // Form field configs
   const createFields: FormFieldConfig[] = useMemo(() => [
     { name: "full_name", label: "Full Name", type: "text", required: true, placeholder: "e.g. Yash Pal" },
@@ -442,41 +638,125 @@ export default function MemberManagement() {
   };
 
   // Submit handlings
-  const onCreateSubmit = async (data: any) => {
-    if (!data.plan_id) {
-      notify.error("Membership Plan assignment is required to save new members.");
+  const onCreateSubmit = async () => {
+    if (!regFullName.trim()) {
+      notify.error("Full Name is required.");
+      return;
+    }
+    if (!regEmail.trim()) {
+      notify.error("Email Address is required.");
+      return;
+    }
+    if (!regPhone.trim()) {
+      notify.error("Phone Number is required.");
+      return;
+    }
+    if (!billingCalculations.resolvedPlanId) {
+      notify.error("No valid membership plan resolved for selection.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const sanitized = sanitizePayload(data) as MemberCreatePayload;
-      await memberService.createMember(sanitized);
-      notify.success("New member added successfully");
+      // 1. Create the member record
+      const payload: MemberCreatePayload = {
+        full_name: regFullName,
+        email: regEmail,
+        phone: regPhone,
+        date_of_birth: regDOB || null,
+        gender: regGender || null,
+        address: regAddress || null,
+        emergency_contact_name: regEmergencyName || null,
+        emergency_contact_phone: regEmergencyPhone || null,
+        emergency_relation: regEmergencyRelation || null,
+        medical_notes: regMedicalNotes || null,
+        occupation: regOccupation || null,
+        height: regHeight ? Number(regHeight) : null,
+        weight: regWeight ? Number(regWeight) : null,
+        joining_date: regJoiningDate,
+        notes: regNotes || null,
+        plan_id: billingCalculations.resolvedPlanId,
+        trainer_id: regPT && regTrainerId ? regTrainerId : null
+      };
+
+      const newMemberRes = await memberService.createMember(payload);
+      
+      // 2. Fetch created membership id
+      const activeMemId = newMemberRes?.active_membership?.id || newMemberRes?.memberships?.[0]?.id;
+      
+      if (activeMemId && newMemberRes?.id) {
+        // Prepare detailed billing details snapshot
+        const ptPkg = ptPlans.find(pt => pt.id === regPTPlanId);
+        const lockerDetails = regLocker && lockerPlans.length > 0 ? {
+          name: lockerPlans[0].name,
+          deposit: billingCalculations.depositLocker,
+          rent: billingCalculations.rentLocker
+        } : null;
+
+        const ptDetails = regPT && ptPkg ? {
+          package_name: ptPkg.package_name,
+          duration_months: Number(regPTDuration),
+          price: billingCalculations.netPTCost,
+          discount: billingCalculations.ptDiscountAmount
+        } : null;
+
+        const servicesDetails = regSelectedServices.map(srvId => {
+          const srv = additionalServices.find(s => s.id === srvId);
+          return srv ? { name: srv.name, price: Number(srv.price) } : null;
+        }).filter(Boolean);
+
+        const billBreakdown = {
+          admission_fee: billingCalculations.admissionFee,
+          membership_base: billingCalculations.baseMembershipCost,
+          locker: lockerDetails,
+          pt: ptDetails,
+          services: servicesDetails,
+          tax_percent: billingCalculations.taxPercent,
+          tax_amount: billingCalculations.gstAmount,
+          grand_total: billingCalculations.grandTotal
+        };
+
+        const paymentAmt = regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal;
+
+        // Log payment invoice transaction
+        await api.post("/api/v1/payments/", {
+          membership_id: activeMemId,
+          member_id: newMemberRes.id,
+          amount_paid: paymentAmt,
+          payment_method: regPaymentMethod,
+          notes: `Initial registration invoice payment. Paid: ${paymentAmt}, Total: ${billingCalculations.grandTotal}`,
+          billing_details: billBreakdown
+        });
+      }
+
+      notify.success("New member registered and initial payment invoice logged successfully!");
       setIsCreateOpen(false);
+      
+      // Reset form fields
+      setRegFullName("");
+      setRegEmail("");
+      setRegPhone("");
+      setRegDOB("");
+      setRegGender("male");
+      setRegAddress("");
+      setRegOccupation("");
+      setRegHeight("");
+      setRegWeight("");
+      setRegMedicalNotes("");
+      setRegEmergencyName("");
+      setRegEmergencyPhone("");
+      setRegEmergencyRelation("");
+      setRegLocker(false);
+      setRegPT(false);
+      setRegPTPlanId("");
+      setRegPTDuration(1);
+      setRegSelectedServices([]);
+      setRegAmountPaid("");
+      setRegNotes("");
+
       loadData();
     } catch (err: any) {
-      if (err.code === "VALIDATION_ERROR" && Array.isArray(err.details)) {
-        err.details.forEach((detail: any) => {
-          const rawField = detail.field || "";
-          const cleanField = rawField.replace(/^body\s*->\s*/, "");
-          if (cleanField === "height") {
-            notify.error("Height must be a number.");
-          } else if (cleanField === "weight") {
-            notify.error("Weight must be a number.");
-          } else if (cleanField === "gender") {
-            notify.error("Gender must be Male, Female or Other.");
-          } else if (cleanField === "date_of_birth") {
-            notify.error("Date of birth is invalid.");
-          } else {
-            const fieldName = cleanField.charAt(0).toUpperCase() + cleanField.slice(1).replace(/_/g, " ");
-            notify.error(`${fieldName}: ${detail.message}`);
-          }
-        });
-      } else {
-        notify.error(err?.message || "Failed to create new member record");
-        setIsCreateOpen(false);
-      }
+      notify.error(err?.message || "Failed to register member or log payment");
     } finally {
       setSubmitting(false);
     }
@@ -585,22 +865,86 @@ export default function MemberManagement() {
       notify.error("Active membership not found");
       return;
     }
+    if (!renewPlanId) {
+      notify.error("Please select a plan to renew.");
+      return;
+    }
+    setSubmitting(true);
     try {
-      await memberService.renewMembership(activeMember.active_membership.id, {
+      // 1. Call renewMembership on backend
+      const renewRes = await memberService.renewMembership(activeMember.active_membership.id, {
         plan_id: renewPlanId,
         start_from_expiry: renewStartFromExpiry,
         notes: renewNotes
       });
-      notify.success("Membership renewed successfully");
+
+      // Grab new membership id
+      const newMemId = renewRes?.data?.id || renewRes?.id;
+
+      if (newMemId) {
+        // Prepare renewal billing details breakdown snapshot
+        const ptPkg = ptPlans.find(pt => pt.id === renewPTPlanId);
+        const lockerDetails = renewLocker && lockerPlans.length > 0 ? {
+          name: lockerPlans[0].name,
+          deposit: 0.00,
+          rent: renewalCalculations.rentLocker
+        } : null;
+
+        const ptDetails = renewPT && ptPkg ? {
+          package_name: ptPkg.package_name,
+          duration_months: Number(renewPTDuration),
+          price: renewalCalculations.netPTCost,
+          discount: renewalCalculations.ptDiscountAmount
+        } : null;
+
+        const servicesDetails = renewSelectedServices.map(srvId => {
+          const srv = additionalServices.find(s => s.id === srvId);
+          return srv ? { name: srv.name, price: Number(srv.price) } : null;
+        }).filter(Boolean);
+
+        const billBreakdown = {
+          admission_fee: 0.00, // skipped on renewals!
+          membership_base: renewalCalculations.baseMembershipCost,
+          locker: lockerDetails,
+          pt: ptDetails,
+          services: servicesDetails,
+          tax_percent: renewalCalculations.taxPercent,
+          tax_amount: renewalCalculations.gstAmount,
+          grand_total: renewalCalculations.grandTotal
+        };
+
+        const paymentAmt = renewAmountPaid !== "" ? Number(renewAmountPaid) : renewalCalculations.grandTotal;
+
+        // Log payment invoice transaction for renewal
+        await api.post("/api/v1/payments/", {
+          membership_id: newMemId,
+          member_id: activeMember.id,
+          amount_paid: paymentAmt,
+          payment_method: renewPaymentMethod,
+          notes: `Renewal invoice payment. Paid: ${paymentAmt}, Total: ${renewalCalculations.grandTotal}`,
+          billing_details: billBreakdown
+        });
+      }
+
+      notify.success("Membership renewed and payment transaction logged successfully");
       loadData();
+      
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
       setActiveMember(updated);
     } catch (err: any) {
       notify.error(err?.message || "Failed to renew membership");
     } finally {
+      setSubmitting(false);
       setIsRenewOpen(false);
+      setRenewPlanId("");
       setRenewNotes("");
+      setRenewLocker(false);
+      setRenewPT(false);
+      setRenewPTPlanId("");
+      setRenewPTDuration(1);
+      setRenewSelectedServices([]);
+      setRenewAmountPaid("");
     }
   };
 
@@ -703,6 +1047,45 @@ export default function MemberManagement() {
     try {
       await memberService.updateMember(activeMember.id, { trainer_id: assignTrainerId || undefined });
       notify.success("Trainer assignment updated successfully");
+
+      // Also create/update a PT assignment in localStorage if a trainer is being assigned!
+      if (assignTrainerId && typeof window !== "undefined") {
+        const selectedTrainerObj = trainers.find((t) => t.id === assignTrainerId);
+        const data = localStorage.getItem("prohealthclub_pt_assignments");
+        const list = data ? JSON.parse(data) : [];
+
+        // Cancel any current active PT subscriptions for this member
+        const cancelledList = list.map((pt: any) => {
+          if (pt.member_id === activeMember.id && pt.status === "active") {
+            return { ...pt, status: "transferred" };
+          }
+          return pt;
+        });
+
+        // Add new active PT subscription
+        const todayStr = new Date().toISOString().split("T")[0];
+        const endStr = new Date();
+        endStr.setMonth(endStr.getMonth() + 1); // 1 Month default
+
+        const newPT = {
+          id: "PT-" + Math.random().toString(36).substring(2, 9).toUpperCase(),
+          member_id: activeMember.id,
+          member_name: activeMember.profile?.full_name || "Member",
+          member_phone: activeMember.profile?.phone || "",
+          trainer_id: assignTrainerId,
+          trainer_name: selectedTrainerObj?.profile?.full_name || selectedTrainerObj?.full_name || "Trainer",
+          trainer_avatar: selectedTrainerObj?.profile?.avatar_url || "",
+          duration: "1 Month",
+          start_date: todayStr,
+          end_date: endStr.toISOString().split("T")[0],
+          time_slot: "07:00 AM - 08:00 AM",
+          status: "active",
+          notes: "Assigned from Member Profile"
+        };
+
+        localStorage.setItem("prohealthclub_pt_assignments", JSON.stringify([...cancelledList, newPT]));
+      }
+
       loadData();
       // Reload active member
       const updated = await memberService.getMemberById(activeMember.id);
@@ -711,6 +1094,62 @@ export default function MemberManagement() {
       notify.error(err?.message || "Failed to update trainer assignment");
     } finally {
       setIsTrainerAssignOpen(false);
+    }
+  };
+
+  const handleCancelPT = async () => {
+    if (!activeMember) return;
+    try {
+      await memberService.updateMember(activeMember.id, { trainer_id: null });
+      
+      if (typeof window !== "undefined") {
+        const data = localStorage.getItem("prohealthclub_pt_assignments");
+        const list = data ? JSON.parse(data) : [];
+        const updated = list.map((pt: any) => {
+          if (pt.member_id === activeMember.id && pt.status === "active") {
+            return { ...pt, status: "cancelled" };
+          }
+          return pt;
+        });
+        localStorage.setItem("prohealthclub_pt_assignments", JSON.stringify(updated));
+      }
+
+      notify.success("Personal Trainer subscription cancelled successfully");
+      loadData();
+      const updatedMember = await memberService.getMemberById(activeMember.id);
+      setActiveMember(updatedMember);
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to cancel trainer subscription");
+    }
+  };
+
+  const handleRenewPT = async () => {
+    if (!activeMember) return;
+    try {
+      if (typeof window !== "undefined") {
+        const data = localStorage.getItem("prohealthclub_pt_assignments");
+        const list = data ? JSON.parse(data) : [];
+        const activePT = list.find((pt: any) => pt.member_id === activeMember.id && pt.status === "active");
+        if (activePT) {
+          const currentEnd = new Date(activePT.end_date);
+          currentEnd.setDate(currentEnd.getDate() + 30);
+          const updated = list.map((pt: any) => {
+            if (pt.id === activePT.id) {
+              return { ...pt, end_date: currentEnd.toISOString().split("T")[0] };
+            }
+            return pt;
+          });
+          localStorage.setItem("prohealthclub_pt_assignments", JSON.stringify(updated));
+          notify.success("PT Subscription renewed for 30 days");
+        } else {
+          setIsTrainerAssignOpen(true);
+        }
+      }
+      loadData();
+      const updatedMember = await memberService.getMemberById(activeMember.id);
+      setActiveMember(updatedMember);
+    } catch (err: any) {
+      notify.error(err?.message || "Failed to renew trainer subscription");
     }
   };
 
@@ -1325,10 +1764,61 @@ export default function MemberManagement() {
                   )}
                 </div>
 
-                {/* 4. ASSIGNED FITNESS COACH */}
+                {/* 3.1. BILLING ADD-ONS DETAIL */}
+                {latestBilling && (
+                  <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center gap-1.5">
+                      <Clipboard size={14} /> POS Billing Add-ons
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
+                      <div>
+                        <p className="text-slate-500 text-[10px] uppercase">Admission Fee Paid</p>
+                        <p className="text-white mt-0.5">{formatINR(latestBilling.admission_fee || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 text-[10px] uppercase">Membership Base Cost</p>
+                        <p className="text-white mt-0.5">{formatINR(latestBilling.membership_base || 0)}</p>
+                      </div>
+                      {latestBilling.locker && (
+                        <div>
+                          <p className="text-slate-500 text-[10px] uppercase">Locker Facility</p>
+                          <p className="text-white mt-0.5">{latestBilling.locker.name || "Standard Locker"}</p>
+                          <span className="text-[9px] text-slate-500 font-semibold block uppercase">Deposit: {formatINR(latestBilling.locker.deposit)} • Rent: {formatINR(latestBilling.locker.rent)}</span>
+                        </div>
+                      )}
+                      {latestBilling.pt && (
+                        <div>
+                          <p className="text-slate-500 text-[10px] uppercase">PT Package</p>
+                          <p className="text-white mt-0.5">{latestBilling.pt.package_name || "Personal Trainer"} ({latestBilling.pt.duration_months}m)</p>
+                          <span className="text-[9px] text-slate-500 font-semibold block uppercase">Cost: {formatINR(latestBilling.pt.price)} {latestBilling.pt.discount > 0 && `(Saved ${formatINR(latestBilling.pt.discount)})`}</span>
+                        </div>
+                      )}
+                      {activeMember.assigned_trainer && (
+                        <div>
+                          <p className="text-slate-500 text-[10px] uppercase">Assigned Coach</p>
+                          <p className="text-[#FF6B00] font-black mt-0.5">{activeMember.assigned_trainer.full_name}</p>
+                        </div>
+                      )}
+                      {latestBilling.services && latestBilling.services.length > 0 && (
+                        <div className="col-span-2">
+                          <p className="text-slate-500 text-[10px] uppercase">Subscribed Services</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {latestBilling.services.map((srv: any, i: number) => (
+                              <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/5 rounded-md text-[9px] text-slate-300 font-bold uppercase">
+                                {srv.name} (₹{srv.price})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. PERSONAL TRAINER ASSIGNMENT & SUBSCRIPTION */}
                 <div className="bg-[#121212] border border-white/5 p-4 rounded-3xl space-y-4">
                   <h4 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5"><Users size={14} /> Assigned Coach</span>
+                    <span className="flex items-center gap-1.5"><Users size={14} /> Personal Trainer</span>
                     <Permission allowedRoles={["admin", "receptionist"]}>
                       <Button
                         onClick={() => {
@@ -1341,13 +1831,97 @@ export default function MemberManagement() {
                       </Button>
                     </Permission>
                   </h4>
-                  {activeMember.assigned_trainer ? (
-                    <div className="text-xs font-semibold text-slate-300">
-                      <p className="text-white">{activeMember.assigned_trainer.full_name}</p>
-                      <p className="text-[10px] text-slate-500">{activeMember.assigned_trainer.specialization || "General Coaching Specialist"}</p>
+
+                  {memberPTAssignment ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full border border-white/10 bg-black/40 flex items-center justify-center text-xs font-black text-slate-400 overflow-hidden">
+                          {memberPTAssignment.trainer_avatar ? (
+                            <img src={memberPTAssignment.trainer_avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            memberPTAssignment.trainer_name[0].toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white">{memberPTAssignment.trainer_name}</p>
+                          <p className="text-[9px] text-slate-500 font-semibold uppercase">Coaching Specialist • 4.9 ⭐</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-black/30 border border-white/5 p-3 rounded-2xl space-y-2 text-xs">
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-slate-500 text-[10px] uppercase">PT Subscription</span>
+                          <span className="text-white">{memberPTAssignment.duration}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-slate-500 text-[10px] uppercase">Start / Expiry</span>
+                          <span className="text-slate-300">{memberPTAssignment.start_date} to {memberPTAssignment.end_date}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-semibold pt-1 border-t border-white/5">
+                          <span className="text-slate-500 text-[10px] uppercase">Countdown</span>
+                          {(() => {
+                            const diff = Math.ceil((new Date(memberPTAssignment.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                            const text = diff > 0 ? `${diff} days left` : "Expired";
+                            const style = diff > 5 ? "bg-green-500/10 text-green-500" : diff > 0 ? "bg-amber-500/10 text-amber-500 animate-pulse" : "bg-red-500/10 text-red-500";
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-white/5 ${style}`}>
+                                {text}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      <Permission allowedRoles={["admin", "receptionist"]}>
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <Button
+                            onClick={handleRenewPT}
+                            className="h-8 bg-black hover:bg-slate-900 border border-white/10 text-[9px] font-bold uppercase text-slate-200 rounded-xl"
+                          >
+                            Renew PT
+                          </Button>
+                          <Button
+                            onClick={() => setIsTrainerAssignOpen(true)}
+                            className="h-8 bg-black hover:bg-slate-900 border border-white/10 text-[9px] font-bold uppercase text-slate-200 rounded-xl"
+                          >
+                            Transfer
+                          </Button>
+                          <Button
+                            onClick={handleCancelPT}
+                            className="h-8 bg-black hover:bg-slate-900 border border-red-500/20 text-[9px] font-bold uppercase text-red-500 rounded-xl"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </Permission>
+                    </div>
+                  ) : activeMember.assigned_trainer ? (
+                    <div className="space-y-3">
+                      <div className="text-xs font-semibold text-slate-300">
+                        <p className="text-white">{activeMember.assigned_trainer.full_name}</p>
+                        <p className="text-[10px] text-slate-500">{activeMember.assigned_trainer.specialization || "General Coaching Specialist"}</p>
+                      </div>
+                      <Permission allowedRoles={["admin", "receptionist"]}>
+                        <Button
+                          onClick={handleRenewPT}
+                          className="h-8 w-full bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 border border-[#FF6B00]/20 text-[#FF6B00] text-[9px] font-black uppercase rounded-xl"
+                        >
+                          Convert to PT Subscription
+                        </Button>
+                      </Permission>
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 italic">No personal trainer assigned.</p>
+                    <div className="text-center py-2 space-y-2">
+                      <p className="text-xs text-slate-500 italic">No personal trainer assigned.</p>
+                      <Permission allowedRoles={["admin", "receptionist"]}>
+                        <Button
+                          onClick={() => setIsTrainerAssignOpen(true)}
+                          className="h-8 px-4 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 border border-[#FF6B00]/20 text-[#FF6B00] text-[9px] font-black uppercase rounded-xl"
+                        >
+                          Book Personal Trainer
+                        </Button>
+                      </Permission>
+                    </div>
                   )}
                 </div>
 
@@ -1716,67 +2290,273 @@ export default function MemberManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. RENEW MEMBERSHIP */}
+      {/* 2. RENEW MEMBERSHIP WITH POS BILLING */}
       <Dialog open={isRenewOpen} onOpenChange={setIsRenewOpen}>
-        <DialogContent className="max-w-sm bg-[#121212] border border-white/5 text-white rounded-3xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5"><RefreshCw size={14} className="text-[#FF6B00]" /> Renew Membership</DialogTitle>
+        <DialogContent className="max-w-4xl bg-[#0a0a0a] border border-white/5 text-white rounded-3xl p-6 overflow-y-auto max-h-[90vh]">
+          <DialogHeader className="border-b border-white/5 pb-3 mb-4">
+            <DialogTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5">
+              <RefreshCw size={14} className="text-[#FF6B00]" /> Renew Membership & POS Billing
+            </DialogTitle>
             <DialogDescription className="text-xs text-slate-400 font-semibold">
-              Subscribe or extend membership with a chosen plan period.
+              Subscribe or extend membership with a chosen plan period. The system automatically skips the admission fee on renewals.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4 text-left">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Renewal Plan</Label>
-              <select
-                value={renewPlanId}
-                onChange={(e) => setRenewPlanId(e.target.value)}
-                className="w-full h-10 bg-[#171717] border border-white/5 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
-              >
-                <option value="">Select Plan...</option>
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} - ₹{p.price}</option>
-                ))}
-              </select>
-            </div>
-            {activeMember?.active_membership && (
-              <div className="flex items-center justify-between bg-black/40 border border-white/5 p-3 rounded-xl">
-                <span className="text-[11px] font-bold text-slate-400">Start from Expiry Date?</span>
-                <input
-                  type="checkbox"
-                  checked={renewStartFromExpiry}
-                  onChange={(e) => setRenewStartFromExpiry(e.target.checked)}
-                  className="w-4 h-4 accent-[#FF6B00] cursor-pointer"
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Side: Inputs Form (7 columns) */}
+            <div className="lg:col-span-7 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase">Select Renewal Plan *</Label>
+                <select
+                  value={renewPlanId}
+                  onChange={(e) => setRenewPlanId(e.target.value)}
+                  className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs text-white px-3 focus:outline-none focus:border-[#FF6B00]"
+                >
+                  <option value="">Select Plan...</option>
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} - ₹{p.price}</option>
+                  ))}
+                </select>
+              </div>
+
+              {activeMember?.active_membership && (
+                <div className="flex items-center justify-between bg-white/5 border border-white/5 p-3 rounded-xl">
+                  <span className="text-[11px] font-bold text-slate-400">Start from Expiry Date?</span>
+                  <input
+                    type="checkbox"
+                    checked={renewStartFromExpiry}
+                    onChange={(e) => setRenewStartFromExpiry(e.target.checked)}
+                    className="w-4 h-4 accent-[#FF6B00] cursor-pointer"
+                  />
+                </div>
+              )}
+
+              {/* Locker assignment renewal */}
+              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                <div>
+                  <Label className="text-xs font-bold text-white block">Renew Locker Facility</Label>
+                  <span className="text-[10px] text-slate-500 font-semibold block">₹0 deposit for renewals + Rent (₹250/m or ₹600/qtr)</span>
+                </div>
+                <input type="checkbox" checked={renewLocker} onChange={e => setRenewLocker(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+              </div>
+
+              {/* Personal Trainer renewal */}
+              <div className="border-t border-white/5 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs font-bold text-white block">Renew Personal Trainer (PT)</Label>
+                    <span className="text-[10px] text-slate-500 font-semibold block">Dedicated certified coach. Multi-month discounts apply.</span>
+                  </div>
+                  <input type="checkbox" checked={renewPT} onChange={e => setRenewPT(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+                </div>
+
+                {renewPT && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Package</Label>
+                      <select value={renewPTPlanId} onChange={e => setRenewPTPlanId(e.target.value)} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                        <option value="">Select Package...</option>
+                        {ptPlans.map(pt => (
+                          <option key={pt.id} value={pt.id}>{pt.package_name} - ₹{pt.price}/mo ({pt.session_count} sess)</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Duration</Label>
+                      <select value={renewPTDuration} onChange={e => setRenewPTDuration(Number(e.target.value))} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                        <option value={1}>1 Month</option>
+                        <option value={3}>3 Months (10% Off)</option>
+                        <option value={6}>6 Months (15% Off)</option>
+                        <option value={12}>1 Year (20% Off)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Services */}
+              <div className="border-t border-white/5 pt-3 space-y-2">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase">Select Additional Services</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {additionalServices.map(srv => {
+                    const isSelected = renewSelectedServices.includes(srv.id);
+                    return (
+                      <button
+                        type="button"
+                        key={srv.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setRenewSelectedServices(prev => prev.filter(id => id !== srv.id));
+                          } else {
+                            setRenewSelectedServices(prev => [...prev, srv.id]);
+                          }
+                        }}
+                        className={`h-8 px-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition-colors ${
+                          isSelected 
+                            ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]" 
+                            : "bg-black/30 border-white/5 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <span className="truncate">{srv.name}</span>
+                        <span className="text-[10px] font-bold opacity-80">₹{srv.price}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Settlement Section */}
+              <div className="border-t border-white/5 pt-3 grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Payment Mode</Label>
+                  <select value={renewPaymentMethod} onChange={e => setRenewPaymentMethod(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white">
+                    <option value="cash">💵 Cash Payment</option>
+                    <option value="upi">📱 UPI / QR Scan</option>
+                    <option value="card">💳 Card Terminal</option>
+                    <option value="bank_transfer">🏦 Bank Wire Transfer</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Amount Paid (₹)</Label>
+                  <input
+                    type="number"
+                    value={renewAmountPaid}
+                    onChange={e => setRenewAmountPaid(e.target.value)}
+                    placeholder={`Default: ₹${renewalCalculations.grandTotal}`}
+                    className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase">Renewal Notes / Comments</Label>
+                <textarea
+                  value={renewNotes}
+                  onChange={(e) => setRenewNotes(e.target.value)}
+                  className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-16 focus:outline-none focus:border-[#FF6B00] resize-none"
+                  placeholder="Payment terms, special discounts..."
                 />
               </div>
-            )}
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes / Comments</Label>
-              <textarea
-                value={renewNotes}
-                onChange={(e) => setRenewNotes(e.target.value)}
-                className="w-full bg-[#171717] border border-white/5 rounded-xl text-xs text-white p-3 h-20 focus:outline-none focus:border-[#FF6B00] resize-none"
-                placeholder="Payment terms, special discounts..."
-              />
+            </div>
+
+            {/* Right Side: Invoice Breakdown */}
+            <div className="lg:col-span-5 bg-[#111] border border-white/5 rounded-3xl p-5 space-y-4 max-h-[60vh] flex flex-col justify-between">
+              <div className="space-y-3.5 text-xs">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Renewal POS Receipt</span>
+                  <span className="text-[9px] bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/20 px-2 py-0.5 rounded-full font-black uppercase">
+                    Admission Fee Skipped
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Admission Entry Fee:</span>
+                  <span className="font-mono text-slate-500 line-through">₹200.00 (₹0 renewal)</span>
+                </div>
+
+                <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                  <div>
+                    <span className="block font-semibold text-white">Membership plan:</span>
+                    <span className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">
+                      {renewalCalculations.resolvedPlan?.name || "Select Plan..."}
+                    </span>
+                  </div>
+                  <span className="font-mono text-white mt-1 font-bold">{formatINR(renewalCalculations.baseMembershipCost)}</span>
+                </div>
+
+                {renewLocker && (
+                  <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                    <div>
+                      <span className="block font-semibold text-white">Locker Rent:</span>
+                      <span className="text-[10px] text-slate-500 font-semibold uppercase">₹0 deposit • Rent: {formatINR(renewalCalculations.rentLocker)}</span>
+                    </div>
+                    <span className="font-mono text-white mt-1 font-bold">{formatINR(renewalCalculations.rentLocker)}</span>
+                  </div>
+                )}
+
+                {renewPT && ptPlans.find(pt => pt.id === renewPTPlanId) && (
+                  <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                    <div>
+                      <span className="block font-semibold text-white">Personal Training Package:</span>
+                      <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                        {ptPlans.find(pt => pt.id === renewPTPlanId)?.package_name} ({renewPTDuration}m) 
+                        {renewalCalculations.ptDiscountAmount > 0 && ` • -${renewalCalculations.ptDiscountPercent}% discount`}
+                      </span>
+                    </div>
+                    <span className="font-mono text-white mt-1 font-bold">{formatINR(renewalCalculations.netPTCost)}</span>
+                  </div>
+                )}
+
+                {renewSelectedServices.length > 0 && (
+                  <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                    <div>
+                      <span className="block font-semibold text-white">Additional Services:</span>
+                      <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                        {renewSelectedServices.map(srvId => additionalServices.find(s => s.id === srvId)?.name).join(", ")}
+                      </span>
+                    </div>
+                    <span className="font-mono text-white mt-1 font-bold">{formatINR(renewalCalculations.servicesCost)}</span>
+                  </div>
+                )}
+
+                {/* Subtotal & GST math */}
+                <div className="border-t-2 border-dashed border-white/10 pt-3 space-y-2">
+                  <div className="flex justify-between text-slate-400 font-bold">
+                    <span>Subtotal:</span>
+                    <span className="font-mono text-white">{formatINR(renewalCalculations.baseMembershipCost + renewalCalculations.rentLocker + renewalCalculations.netPTCost + renewalCalculations.servicesCost)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>GST CGST/SGST ({renewalCalculations.taxPercent}%):</span>
+                    <span className="font-mono text-white font-bold">{formatINR(renewalCalculations.gstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-white font-black text-sm border-t border-white/5 pt-2">
+                    <span>Renewal Total:</span>
+                    <span className="font-mono text-[#00C853]">{formatINR(renewalCalculations.grandTotal)}</span>
+                  </div>
+                </div>
+
+                {/* Received settlement math */}
+                <div className="bg-black/40 border border-white/5 rounded-2xl p-3 space-y-1.5 mt-2">
+                  <div className="flex justify-between text-slate-400 font-bold">
+                    <span>Amount Received:</span>
+                    <span className="font-mono text-white">
+                      {formatINR(renewAmountPaid !== "" ? Number(renewAmountPaid) : renewalCalculations.grandTotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-400 border-t border-white/5 pt-1.5">
+                    <span>Balance Outstanding:</span>
+                    {(() => {
+                      const paid = renewAmountPaid !== "" ? Number(renewAmountPaid) : renewalCalculations.grandTotal;
+                      const outstanding = renewalCalculations.grandTotal - paid;
+                      return (
+                        <span className={`font-mono font-black ${outstanding > 0 ? "text-red-500" : "text-green-500"}`}>
+                          {formatINR(outstanding)}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3 border-t border-white/5 mt-4">
+                <Button
+                  type="button"
+                  onClick={() => setIsRenewOpen(false)}
+                  className="flex-1 h-10 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleRenewSubmit}
+                  disabled={!renewPlanId}
+                  className="flex-1 h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-black font-black uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-orange-500/10 disabled:opacity-45"
+                >
+                  Settle & Renew
+                </Button>
+              </div>
             </div>
           </div>
-          <DialogFooter className="grid grid-cols-2 gap-3 w-full">
-            <Button
-              type="button"
-              onClick={() => setIsRenewOpen(false)}
-              className="h-10 bg-[#171717] border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleRenewSubmit}
-              disabled={!renewPlanId}
-              className="h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-white rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-45"
-            >
-              Renew
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1950,25 +2730,361 @@ export default function MemberManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 2: CREATE MEMBER */}
+      {/* DIALOG 2: CREATE MEMBER WITH POS BILLING */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl bg-[#121212] border border-white/5 text-white rounded-3xl p-6 overflow-y-auto max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-black uppercase tracking-wider">Add Gym Member</DialogTitle>
+        <DialogContent className="max-w-5xl bg-[#0a0a0a] border border-white/5 text-white rounded-3xl p-6 overflow-y-auto max-h-[90vh]">
+          <DialogHeader className="border-b border-white/5 pb-4 mb-4">
+            <DialogTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+              <UserPlus className="text-[#FF6B00]" size={16} /> New Member Registration & Billing POS
+            </DialogTitle>
             <DialogDescription className="text-xs text-slate-400 font-semibold">
-              Fill in all profile, account credentials, and membership assignment details.
+              Fill in the member's details and assign gym memberships, PT packages, lockers, and services. The system automatically computes taxes, discounts, and totals.
             </DialogDescription>
           </DialogHeader>
 
-          <CrudForm
-            fields={createFields}
-            onSubmit={onCreateSubmit}
-            submitLabel="Create Member"
-            loading={submitting}
-            defaultValues={{
-              joining_date: new Date().toISOString().split("T")[0]
-            }}
-          />
+          <form onSubmit={(e) => { e.preventDefault(); onCreateSubmit(); }} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Side: Inputs Form (8 columns) */}
+            <div className="lg:col-span-7 space-y-6 max-h-[65vh] overflow-y-auto pr-2">
+              {/* Group 1: Profile Info */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">1. Personal Profile & Credentials</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Full Name *</Label>
+                    <input type="text" required value={regFullName} onChange={e => setRegFullName(e.target.value)} placeholder="e.g. Yash Pal" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Email Address *</Label>
+                    <input type="email" required value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="e.g. yash@gmail.com" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Phone Number *</Label>
+                    <input type="text" required value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9988776655" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Joining Date *</Label>
+                    <input type="date" required value={regJoiningDate} onChange={e => setRegJoiningDate(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Date of Birth</Label>
+                    <input type="date" value={regDOB} onChange={e => setRegDOB(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Gender</Label>
+                    <select value={regGender} onChange={e => setRegGender(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Portal Password</Label>
+                    <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Occupation</Label>
+                    <input type="text" value={regOccupation} onChange={e => setRegOccupation(e.target.value)} placeholder="e.g. Business Owner" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Height (cm)</Label>
+                    <input type="number" value={regHeight} onChange={e => setRegHeight(e.target.value)} placeholder="175" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Weight (kg)</Label>
+                    <input type="number" value={regWeight} onChange={e => setRegWeight(e.target.value)} placeholder="70" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Residential Address</Label>
+                  <textarea value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="Full home address..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+                </div>
+              </div>
+
+              {/* Group 2: Emergency Contact */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">2. Emergency Contact</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Name</Label>
+                    <input type="text" value={regEmergencyName} onChange={e => setRegEmergencyName(e.target.value)} placeholder="Person name" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Phone</Label>
+                    <input type="text" value={regEmergencyPhone} onChange={e => setRegEmergencyPhone(e.target.value)} placeholder="Phone number" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Relation</Label>
+                    <input type="text" value={regEmergencyRelation} onChange={e => setRegEmergencyRelation(e.target.value)} placeholder="e.g. Father" className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Medical Notes / Health constraints</Label>
+                  <textarea value={regMedicalNotes} onChange={e => setRegMedicalNotes(e.target.value)} placeholder="List any injuries, cardiovascular/respiratory conditions or constraints..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+                </div>
+              </div>
+
+              {/* Group 3: Membership Plan */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">3. Assign Membership & Options</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Plan Category *</Label>
+                    <select value={regCategory} onChange={e => setRegCategory(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white">
+                      <option value="CrossFit + Weight Training">CrossFit + Weight Training</option>
+                      <option value="Only Cardio">Only Cardio</option>
+                      <option value="Cardio + CrossFit + Weight Training">Cardio + CrossFit + Weight Training</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Plan Period (Duration) *</Label>
+                    <select value={regDuration} onChange={e => setRegDuration(Number(e.target.value))} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white">
+                      <option value={30}>1 Month (30 Days)</option>
+                      <option value={90}>3 Months (90 Days)</option>
+                      <option value={180}>6 Months (180 Days)</option>
+                      <option value={365}>1 Year (365 Days)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Locker assignment */}
+                <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                  <div>
+                    <Label className="text-xs font-bold text-white block">Standard Locker Facility</Label>
+                    <span className="text-[10px] text-slate-500 font-semibold block">₹500 Refundable Deposit + Rent (₹250/m or ₹600/qtr)</span>
+                  </div>
+                  <input type="checkbox" checked={regLocker} onChange={e => setRegLocker(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+                </div>
+
+                {/* Personal Trainer assignment */}
+                <div className="border-t border-white/5 pt-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-bold text-white block">Assign Personal Trainer (PT)</Label>
+                      <span className="text-[10px] text-slate-500 font-semibold block">Dedicated certified coach. Multi-month discounts: 3m=10%, 6m=15%, 1y=20%</span>
+                    </div>
+                    <input type="checkbox" checked={regPT} onChange={e => setRegPT(e.target.checked)} className="w-4 h-4 accent-[#FF6B00] cursor-pointer" />
+                  </div>
+
+                  {regPT && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Package</Label>
+                        <select value={regPTPlanId} onChange={e => setRegPTPlanId(e.target.value)} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                          <option value="">Select Package...</option>
+                          {ptPlans.map(pt => (
+                            <option key={pt.id} value={pt.id}>{pt.package_name} - ₹{pt.price}/mo ({pt.session_count} sess)</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">PT Duration</Label>
+                        <select value={regPTDuration} onChange={e => setRegPTDuration(Number(e.target.value))} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                          <option value={1}>1 Month</option>
+                          <option value={3}>3 Months (10% Off)</option>
+                          <option value={6}>6 Months (15% Off)</option>
+                          <option value={12}>1 Year (20% Off)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Assign Coach</Label>
+                        <select value={regTrainerId} onChange={e => setRegTrainerId(e.target.value)} className="w-full h-8 bg-[#171717] border border-white/10 rounded-lg text-xs px-2 text-white">
+                          <option value="">Select Trainer...</option>
+                          {trainers.map(t => (
+                            <option key={t.id} value={t.id}>{t.profile?.full_name || "Trainer"} ({t.specialization || "General"})</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Additional Services */}
+                <div className="border-t border-white/5 pt-3 space-y-2">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Select Additional Services</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {additionalServices.map(srv => {
+                      const isSelected = regSelectedServices.includes(srv.id);
+                      return (
+                        <button
+                          type="button"
+                          key={srv.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setRegSelectedServices(prev => prev.filter(id => id !== srv.id));
+                            } else {
+                              setRegSelectedServices(prev => [...prev, srv.id]);
+                            }
+                          }}
+                          className={`h-8 px-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition-colors ${
+                            isSelected 
+                              ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]" 
+                              : "bg-black/30 border-white/5 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          <span className="truncate">{srv.name}</span>
+                          <span className="text-[10px] font-bold opacity-80">₹{srv.price}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Settlement Section */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#FF6B00] border-b border-white/5 pb-2">4. Payment Settlement</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Payment Mode</Label>
+                    <select value={regPaymentMethod} onChange={e => setRegPaymentMethod(e.target.value)} className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white">
+                      <option value="cash">💵 Cash Payment</option>
+                      <option value="upi">📱 UPI / QR Scan</option>
+                      <option value="card">💳 Card Terminal</option>
+                      <option value="bank_transfer">🏦 Bank Wire Transfer</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Amount Paid (₹)</Label>
+                    <input
+                      type="number"
+                      value={regAmountPaid}
+                      onChange={e => setRegAmountPaid(e.target.value)}
+                      placeholder={`Default: ₹${billingCalculations.grandTotal}`}
+                      className="w-full h-9 bg-black/40 border border-white/10 rounded-xl text-xs px-3 focus:outline-none focus:border-[#FF6B00] text-white font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">General Registration Notes</Label>
+                  <textarea value={regNotes} onChange={e => setRegNotes(e.target.value)} placeholder="Special dietary constraints, health risks, custom agreements..." className="w-full bg-black/40 border border-white/10 rounded-xl text-xs text-white p-2 h-14 focus:outline-none focus:border-[#FF6B00] resize-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Side: Real-time POS Invoice Card (5 columns) */}
+            <div className="lg:col-span-5">
+              <div className="bg-[#111] border border-white/5 rounded-3xl p-5 space-y-4 sticky top-0">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-black uppercase text-slate-300">
+                    <Clipboard size={14} className="text-[#FF6B00]" /> POS Invoice Breakdown
+                  </div>
+                  <span className="text-[9px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                    Auto-Calculator
+                  </span>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  {/* Itemized breakdown rows */}
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Admission Entry Fee:</span>
+                    <span className="font-mono text-white font-bold">{formatINR(billingCalculations.admissionFee)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                    <div>
+                      <span className="block font-semibold text-white">Membership plan:</span>
+                      <span className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">{regCategory} ({regDuration === 365 ? "1 Year" : `${regDuration / 30} Months`})</span>
+                    </div>
+                    <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.baseMembershipCost)}</span>
+                  </div>
+
+                  {regLocker && (
+                    <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                      <div>
+                        <span className="block font-semibold text-white">Locker Rent & Deposit:</span>
+                        <span className="text-[10px] text-slate-500 font-semibold uppercase">Deposit: {formatINR(billingCalculations.depositLocker)} • Rent: {formatINR(billingCalculations.rentLocker)}</span>
+                      </div>
+                      <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.depositLocker + billingCalculations.rentLocker)}</span>
+                    </div>
+                  )}
+
+                  {regPT && ptPlans.find(pt => pt.id === regPTPlanId) && (
+                    <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                      <div>
+                        <span className="block font-semibold text-white">Personal Training Package:</span>
+                        <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                          {ptPlans.find(pt => pt.id === regPTPlanId)?.package_name} ({regPTDuration}m) 
+                          {billingCalculations.ptDiscountAmount > 0 && ` • -${billingCalculations.ptDiscountPercent}% discount`}
+                        </span>
+                      </div>
+                      <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.netPTCost)}</span>
+                    </div>
+                  )}
+
+                  {regSelectedServices.length > 0 && (
+                    <div className="flex justify-between items-start text-slate-400 border-t border-white/5 pt-2">
+                      <div>
+                        <span className="block font-semibold text-white">Additional Services:</span>
+                        <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                          {regSelectedServices.map(srvId => additionalServices.find(s => s.id === srvId)?.name).join(", ")}
+                        </span>
+                      </div>
+                      <span className="font-mono text-white mt-1 font-bold">{formatINR(billingCalculations.servicesCost)}</span>
+                    </div>
+                  )}
+
+                  {/* Summary math block */}
+                  <div className="border-t-2 border-dashed border-white/10 pt-3 space-y-2">
+                    <div className="flex justify-between text-slate-400 font-bold">
+                      <span>Subtotal (Taxable):</span>
+                      <span className="font-mono text-white">{formatINR(billingCalculations.baseMembershipCost + billingCalculations.rentLocker + billingCalculations.netPTCost + billingCalculations.servicesCost)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>GST CGST/SGST ({billingCalculations.taxPercent}%):</span>
+                      <span className="font-mono text-white font-bold">{formatINR(billingCalculations.gstAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-white font-black text-sm border-t border-white/5 pt-2">
+                      <span>Grand Total:</span>
+                      <span className="font-mono text-[#00C853]">{formatINR(billingCalculations.grandTotal)}</span>
+                    </div>
+                  </div>
+
+                  {/* Settlement Math */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-3.5 space-y-2 mt-4">
+                    <div className="flex justify-between text-slate-400 font-bold">
+                      <span>Amount Received:</span>
+                      <span className="font-mono text-white">
+                        {formatINR(regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 border-t border-white/5 pt-2">
+                      <span>Balance Outstanding:</span>
+                      {(() => {
+                        const paid = regAmountPaid !== "" ? Number(regAmountPaid) : billingCalculations.grandTotal;
+                        const outstanding = billingCalculations.grandTotal - paid;
+                        return (
+                          <span className={`font-mono font-black ${outstanding > 0 ? "text-red-500" : "text-green-500"}`}>
+                            {formatINR(outstanding)}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-3">
+                  <Button
+                    type="button"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="flex-1 h-10 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold uppercase tracking-wider text-slate-300 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 h-10 bg-[#FF6B00] hover:bg-[#FF8020] text-black font-black uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-orange-500/10"
+                  >
+                    {submitting ? "Processing POS..." : "Settle & Create"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
  

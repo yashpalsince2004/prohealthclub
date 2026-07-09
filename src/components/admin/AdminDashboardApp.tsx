@@ -7,7 +7,8 @@ import MemberManagement from "./MemberManagement";
 import AdminCharts from "../dashboard/AdminCharts";
 import AttendanceModule from "../dashboard/AttendanceModule";
 import BiometricCenter from "../dashboard/BiometricCenter";
-import TrainerModule from "../dashboard/TrainerModule";
+import TrainerManagement from "./TrainerManagement";
+import PricingManagement from "./PricingManagement";
 import InventoryModule from "../dashboard/InventoryModule";
 import ReportsModule from "../dashboard/ReportsModule";
 import SettingsModule from "../dashboard/SettingsModule";
@@ -220,10 +221,11 @@ export default function AdminDashboardApp() {
               )}
 
               {currentTab === "trainers" && (
-                <div className="p-4 bg-[#171717] border border-white/5 rounded-2xl">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Trainers Directory</h3>
-                  <p className="text-xs text-slate-500 mt-2">Certified trainers listing and PT assignments schedule.</p>
-                </div>
+                <TrainerManagement />
+              )}
+
+              {currentTab === "pricing" && (
+                <PricingManagement />
               )}
 
               {currentTab === "inventory" && (

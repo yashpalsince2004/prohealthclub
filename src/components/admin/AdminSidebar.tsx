@@ -23,6 +23,7 @@ export type AdminSidebarTab =
   | "attendance" 
   | "biometrics" 
   | "trainers" 
+  | "pricing"
   | "inventory" 
   | "reports" 
   | "settings";
@@ -60,7 +61,8 @@ export default function AdminSidebar({ currentTab, onChangeTab, isCollapsed, onT
     {
       title: "Management",
       items: [
-        { id: "trainers", label: "Trainers & Schedules", icon: ShieldCheck },
+        { id: "trainers", label: "🏋 Trainers", icon: ShieldCheck },
+        { id: "pricing", label: "💰 Pricing Master", icon: CreditCard },
         { id: "inventory", label: "Inventory Stock", icon: Package },
         { id: "reports", label: "Reports & Charts", icon: BarChart3 }
       ]

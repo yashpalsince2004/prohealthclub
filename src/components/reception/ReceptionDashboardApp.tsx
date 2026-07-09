@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar, { SidebarTab } from "../dashboard/Sidebar";
 import Navbar from "../dashboard/Navbar";
 import MemberManagement from "../admin/MemberManagement";
+import TrainerManagement from "../admin/TrainerManagement";
 import BiometricPanel from "../dashboard/BiometricPanel";
 import AddMemberForm from "../dashboard/AddMemberForm";
 import ExpiringMemberships from "../dashboard/ExpiringMemberships";
@@ -75,6 +76,10 @@ export default function ReceptionDashboardApp() {
 
               {currentTab === "members" && (
                 <MemberManagement />
+              )}
+
+              {currentTab === "trainers" && (
+                <TrainerManagement />
               )}
 
               {currentTab === "attendance" && (

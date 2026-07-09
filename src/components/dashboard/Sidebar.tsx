@@ -69,7 +69,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "dashboard",    label: "Dashboard Overview",href: "/admin",              icon: LayoutDashboard, roles: ["admin"], group: "Dashboard" },
   
   { id: "receptionists",label: "Receptionists",  href: "/admin/receptionists", icon: UserCheck,       roles: ["admin"], group: "Management" },
-  { id: "trainers",     label: "Trainers",       href: "/admin/trainers",      icon: Dumbbell,        roles: ["admin"], group: "Management" },
+  { id: "trainers",     label: "🏋 Trainers",    href: "/admin/trainers",      icon: Dumbbell,        roles: ["admin", "receptionist"], group: "Management" },
   { id: "members",      label: "Members",        href: "/admin/members",       icon: Users,           roles: ["admin"], group: "Management" },
   
   { id: "memberships",  label: "Memberships",    href: "/reception#memberships",icon: CreditCard,     roles: ["admin"], group: "Operations" },

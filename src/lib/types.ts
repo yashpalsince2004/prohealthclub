@@ -123,7 +123,45 @@ export interface PlanResponse {
   features: string[] | null;
   is_active: boolean;
   display_order: number;
+  category: string | null;
+  admission_fee: number;
+  tax: number;
+  color: string | null;
   active_subscriber_count: number;
+}
+
+export interface PTPlan {
+  id: string;
+  package_name: string;
+  price: number;
+  session_count: number;
+  whatsapp_support: boolean;
+  locker_included: boolean;
+  transformation_included: boolean;
+  diet_included: boolean;
+  stretching_included: boolean;
+  supplement_guidance: boolean;
+  description: string | null;
+  is_active: boolean;
+}
+
+export interface LockerPlan {
+  id: string;
+  name: string;
+  deposit: number;
+  monthly_rent: number;
+  quarterly_rent: number;
+  late_fee: number;
+  refundable: boolean;
+  is_active: boolean;
+}
+
+export interface AdditionalService {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  is_active: boolean;
 }
 
 export interface PlanSummary {
