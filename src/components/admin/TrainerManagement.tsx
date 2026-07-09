@@ -1181,28 +1181,9 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
     return base + clientBonus;
   }, [activeTrainer]);
 
-  return (
-    <div className={standalone ? "min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans" : ""}>
-      {standalone && (
-        <Sidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-      )}
-
-      <div
-        className={standalone ? "flex-1 flex flex-col min-h-screen transition-all duration-300" : "space-y-6 bg-[#090909] text-white p-6 min-h-screen w-full"}
-        style={standalone ? {
-          paddingLeft: isSidebarCollapsed ? "104px" : "284px",
-          paddingTop: "88px",
-          paddingRight: "16px",
-          paddingBottom: "16px",
-          width: "100%"
-        } : undefined}
-      >
-        {standalone && <Navbar />}
-
-        <main className="flex-1 min-h-0 space-y-6 pt-4">
+  const bodyContent = (
+    <>
+      <main className="flex-1 min-h-0 space-y-6 pt-4">
           
           {/* Header section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1345,7 +1326,6 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
             </div>
           </div>
         </main>
-      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           DIALOG: ADD TRAINER STEPPER
@@ -2617,6 +2597,37 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
         loading={submitting}
         itemName={activeTrainer?.profile?.full_name}
       />
+    </>
+  );
+
+  if (standalone) {
+    return (
+      <div className="min-h-screen bg-[#090909] text-white flex select-none overflow-x-hidden font-sans">
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
+
+        <div
+          className="flex-1 flex flex-col min-h-screen transition-all duration-300"
+          style={{
+            paddingLeft: isSidebarCollapsed ? "104px" : "284px",
+            paddingTop: "88px",
+            paddingRight: "16px",
+            paddingBottom: "16px",
+            width: "100%"
+          }}
+        >
+          <Navbar />
+          {bodyContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 text-white w-full">
+      {bodyContent}
     </div>
   );
 }
