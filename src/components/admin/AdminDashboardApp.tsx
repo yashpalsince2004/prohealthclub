@@ -8,6 +8,7 @@ import AdminCharts from "../dashboard/AdminCharts";
 import AttendanceModule from "../dashboard/AttendanceModule";
 import BiometricCenter from "../dashboard/BiometricCenter";
 import TrainerManagement from "./TrainerManagement";
+import ReceptionistManagement from "./ReceptionistManagement";
 import PricingManagement from "./PricingManagement";
 import InventoryModule from "../dashboard/InventoryModule";
 import ReportsModule from "../dashboard/ReportsModule";
@@ -222,6 +223,10 @@ export default function AdminDashboardApp() {
 
               {currentTab === "trainers" && (
                 <TrainerManagement />
+              )}
+
+              {currentTab === "receptionists" && (
+                <ReceptionistManagement />
               )}
 
               {currentTab === "pricing" && (

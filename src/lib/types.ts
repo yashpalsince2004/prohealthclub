@@ -371,3 +371,52 @@ export interface ApiError {
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
+
+export interface ReceptionistResponse {
+  id: string;
+  email: string;
+  is_active: boolean;
+  role: string;
+  created_at: string | null;
+  profile: {
+    id: string;
+    full_name: string;
+    phone: string | null;
+    avatar_url: string | null;
+    date_of_birth: string | null;
+    gender: 'male' | 'female' | 'other' | null;
+    address: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    biometric_device_id: number | null;
+    salary: number | null;
+    shift: string | null;
+    joining_staff_date: string | null;
+    medical_notes: string | null;
+  };
+}
+
+export interface ReceptionistCreatePayload {
+  email: string;
+  password?: string;
+  full_name: string;
+  phone?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  address?: string | null;
+  date_of_birth?: string | null;
+  salary?: number | null;
+  shift?: string | null;
+  joining_staff_date?: string;
+  medical_notes?: string | null;
+}
+
+export interface ReceptionistUpdatePayload {
+  full_name?: string;
+  phone?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  address?: string | null;
+  salary?: number | null;
+  shift?: string | null;
+  is_active?: boolean;
+  medical_notes?: string | null;
+}
