@@ -15,6 +15,7 @@ export interface ColumnConfig {
   header: string;
   sortable?: boolean;
   render?: (row: any) => React.ReactNode;
+  defaultHidden?: boolean;
 }
 
 interface DataTableProps {
@@ -72,7 +73,7 @@ export default function DataTable({
 }: DataTableProps) {
   // Columns visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
-    columns.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    columns.reduce((acc, col) => ({ ...acc, [col.key]: !col.defaultHidden }), {})
   );
 
   // Selection state

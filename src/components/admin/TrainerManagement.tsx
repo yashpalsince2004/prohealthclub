@@ -6,6 +6,7 @@ import {
   Star, ChevronLeft, ChevronRight, X, Printer, Plus, Minus, ArrowLeftRight, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { trainerService, TrainerCreatePayload, TrainerUpdatePayload } from "../../lib/trainerService";
+import { memberService } from "../../lib/memberService";
 import { notify } from "../../lib/notify";
 import { api } from "../../lib/api";
 import { Button } from "../ui/button";
@@ -216,6 +217,7 @@ const saveTrainerCertifications = (certs: TrainerCertification[]) => {
 
 export default function TrainerManagement({ standalone = false }: { standalone?: boolean }) {
   const { user } = useAuth();
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // List & Stats state
@@ -241,7 +243,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const [filters, setFilters] = useState<Record<string, any>>({
-    status: "all",
+    status: "active",
     shift: "",
     employment_type: "",
     specialization: "",
@@ -472,11 +474,13 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
     {
       key: "email",
       header: "Email",
+      defaultHidden: true,
       render: (row: TrainerResponse) => <span className="text-slate-400 font-mono text-[10px]">{row.profile?.email || "N/A"}</span>
     },
     {
       key: "specialization",
       header: "Specialization",
+      defaultHidden: true,
       render: (row: TrainerResponse) => {
         const specs = row.specializations || (row.specialization ? [row.specialization] : []);
         return (
@@ -489,6 +493,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
     {
       key: "roster",
       header: "PT Roster",
+      defaultHidden: true,
       render: (row: TrainerResponse) => (
         <span className="text-slate-300 font-bold font-mono">
           {row.assigned_member_count} / {row.max_members || 15}
@@ -498,6 +503,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
     {
       key: "experience",
       header: "Experience",
+      defaultHidden: true,
       render: (row: TrainerResponse) => (
         <span className="text-slate-400 font-mono text-xs">
           {row.experience_years ? `${row.experience_years} yrs` : "0 yrs"}
@@ -852,7 +858,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
         history: [{
           action: "Created Subscription",
           timestamp: new Date().toLocaleDateString(),
-          byName: user?.full_name || "Staff",
+          byName: user?.profile?.full_name || "Staff",
           details: `Duration: ${ptDuration}, Slot: ${ptTimeSlot}`
         }]
       };
@@ -889,7 +895,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
               {
                 action: "Cancelled Subscription",
                 timestamp: new Date().toLocaleDateString(),
-                byName: user?.full_name || "Staff"
+                byName: user?.profile?.full_name || "Staff"
               }
             ]
           };
@@ -922,7 +928,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
             {
               action: "Extended Subscription",
               timestamp: new Date().toLocaleDateString(),
-              byName: user?.full_name || "Staff",
+              byName: user?.profile?.full_name || "Staff",
               details: `Extended by ${days} days`
             }
           ]
@@ -966,7 +972,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
               {
                 action: "Transferred Trainer",
                 timestamp: new Date().toLocaleDateString(),
-                byName: user?.full_name || "Staff",
+                byName: user?.profile?.full_name || "Staff",
                 details: `Transferred from ${pt.trainer_name} to ${newTrainerObj.profile?.full_name}`
               }
             ]
@@ -1235,7 +1241,7 @@ export default function TrainerManagement({ standalone = false }: { standalone?:
                     filterValues={filters}
                     onFilterChange={(key, val) => setFilters(prev => ({ ...prev, [key]: val }))}
                     onClearFilters={() => setFilters({
-                      status: "all",
+                      status: "active",
                       shift: "",
                       employment_type: "",
                       specialization: "",
